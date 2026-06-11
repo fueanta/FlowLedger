@@ -56,3 +56,57 @@
 - Branch: `main`.
 - Note: `.codex/skills/ui-ux-pro-max` is tracked so project UI/UX guidance survives clone. `.gitattributes` marks it as vendored for GitHub Linguist language stats.
 - Next phase from `docs/erp_workflow_build_plan.md`: Phase 2, Backend domain and database.
+
+## Phase 2: Backend domain and database
+
+### Built
+
+- Added Domain enums: `RoleName`, `BillingRequestStatus`, `AuditActionType`, and `InvoiceStatus`.
+- Added Domain entities: `User`, `Customer`, `BillingRequest`, `BillingRequestLineItem`, `Comment`, `AuditLog`, `Invoice`, and `Notification`.
+- Added `ApprovalRules` with `ManagerApprovalThreshold = 100000m` and `VatRate = 0.15m`.
+- Added EF Core SQL Server persistence with `FlowLedgerDbContext`.
+- Added EF configurations for table names, string lengths, decimal precision, indexes, unique request/invoice numbers, and delete behavior.
+- Added deterministic seed data:
+  - 4 users matching the plan emails and roles.
+  - 6 customers matching the plan.
+  - 17 billing requests with the exact planned status distribution.
+  - 17 line items, 7 invoices, 3 comments, 6 audit logs, and 3 notifications.
+  - Preserved planned journey examples: `BR-2026-0004`, `BR-2026-0006`, `BR-2026-0008`, and `INV-2026-0003`.
+- Added EF migration `InitialCreate`.
+- Wired the API to run EF migrations on startup when `ConnectionStrings__DefaultConnection` is configured.
+- Added SQL Server-backed integration tests using Testcontainers.
+
+### Verification
+
+- Passed: `cd backend && dotnet build`.
+  - Result: build succeeded with 0 warnings and 0 errors.
+- Passed: `cd backend && dotnet test --no-build`.
+  - Result: 4 tests passed, 0 failed.
+  - Coverage added:
+    - `/health` still returns `{ "status": "ok" }`.
+    - EF migration creates the expected 8 domain tables in SQL Server.
+    - EF migration seeds expected baseline counts.
+    - EF migration seeds the planned workflow example records.
+- Passed: `cd frontend/flowledger-web && npm run build`.
+  - Result: TypeScript and Vite production build succeeded.
+- Passed: Docker Compose runtime and database verification from a clean SQL Server volume.
+  - Command: generated temporary local secrets in shell, then ran `docker compose down -v --remove-orphans` and `docker compose up --build -d`.
+  - Result: SQL Server reached healthy state, API and web containers started, and API migration created `FlowLedgerDb`.
+  - Checked: `curl http://localhost:8080/health`.
+  - Result: returned `{ "status": "ok" }`.
+  - Checked: `curl -I http://localhost:5173`.
+  - Result: returned `HTTP/1.1 200 OK`.
+  - Checked SQL Server with `sqlcmd`.
+  - Result: 8 expected tables found.
+  - Result: seed counts matched: 4 users, 6 customers, 17 billing requests, 7 invoices.
+  - Result: planned journey rows found:
+    - `BR-2026-0004` total `45000`, status `AccountsReview`.
+    - `BR-2026-0006` total `180000`, status `AccountsReview`.
+    - `BR-2026-0008` total `65000`, status `Rejected`.
+    - `INV-2026-0003` status `Issued`.
+  - Cleanup: `docker compose down -v --remove-orphans` stopped and removed containers, network, and SQL Server volume.
+
+### Notes
+
+- `dotnet-ef` was not installed globally. Per repo instruction, no global tool was installed. A temporary tool-path install under `/tmp/flowledger-dotnet-tools` was used only to generate the migration.
+- Phase 2 is signed off and ready for Phase 3 after commit.
