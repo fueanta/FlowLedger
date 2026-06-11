@@ -46,3 +46,13 @@
   - Command: `SQLSERVER_SA_PASSWORD='...' JWT_KEY='...' docker compose up --build -d`.
   - Result: SQL Server reached healthy state, API and web started, `/health` returned `{ "status": "ok" }`, and frontend returned `HTTP/1.1 200 OK`.
   - Cleanup: `docker compose down` stopped and removed the containers/network.
+
+### Handoff
+
+- Phase 1 is signed off and ready for Phase 2.
+- Git history was squashed to one commit: `ceb23d5 feat: scaffold FlowLedger phase 1 foundation`.
+- GitHub repository: `https://github.com/fueanta/FlowLedger`.
+- Remote: `origin` points to `https://github.com/fueanta/FlowLedger.git`.
+- Branch: `main`.
+- Note: `.codex/skills/ui-ux-pro-max` is tracked so project UI/UX guidance survives clone. `.gitattributes` marks it as vendored for GitHub Linguist language stats.
+- Next phase from `docs/erp_workflow_build_plan.md`: Phase 2, Backend domain and database.
