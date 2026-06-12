@@ -110,3 +110,24 @@
 
 - `dotnet-ef` was not installed globally. Per repo instruction, no global tool was installed. A temporary tool-path install under `/tmp/flowledger-dotnet-tools` was used only to generate the migration.
 - Phase 2 is signed off and ready for Phase 3 after commit.
+
+### Re-verification on 2026-06-12
+
+- Passed: `dotnet build backend/FlowLedger.sln`.
+  - Result: build succeeded with 0 warnings and 0 errors.
+- Passed: `cd frontend/flowledger-web && npm run build`.
+  - Result: TypeScript and Vite production build succeeded.
+- Initial `dotnet test backend/FlowLedger.sln --no-build` attempt failed because Docker Desktop was not running.
+  - Error: Testcontainers could not connect to Docker daemon at `/Users/mutasim/.docker/run/docker.sock`.
+  - Action: started Docker Desktop. No install performed.
+- Passed after Docker started: `dotnet test backend/FlowLedger.sln --no-build`.
+  - Result: 4 tests passed, 0 failed.
+- Passed: Docker Compose clean-volume verification.
+  - Command: generated temporary local secrets in shell, then ran `docker compose down -v --remove-orphans` and `docker compose up --build -d`.
+  - Result: API returned `{ "status": "ok" }`.
+  - Result: frontend returned `HTTP/1.1 200 OK`.
+  - Result: SQL Server had 8 expected tables.
+  - Result: seed counts matched: 4 users, 6 customers, 17 billing requests, 7 invoices.
+  - Result: planned journey rows still matched: `BR-2026-0004`, `BR-2026-0006`, `BR-2026-0008`, and `INV-2026-0003`.
+  - Cleanup: `docker compose down -v --remove-orphans` stopped and removed containers, network, and SQL Server volume.
+- Phase 2 remains signed off and ready for Phase 3.

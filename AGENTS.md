@@ -68,9 +68,11 @@ Use the local `ui-ux-pro-max` skill for UI/UX design, build, review, fix, or imp
 
 After each phase, make sure the relevant app surfaces build and run before moving on. Write unit, integration, and end-to-end tests as the implemented phase requires, and do not ignore failing tests. Maintain a separate implementation log that records what was built, what build/test/run commands were executed, whether they succeeded, and any environment blockers.
 
+When reading `docs/implementation-log.md`, read from the bottom first so the latest phase status, verification notes, and blockers are understood without scanning the full history.
+
 If a required global system tool is missing, such as Docker, do not silently skip it or silently install it. Ask the user whether to install the tool or proceed with a clearly documented partial verification. Installing project-local dependencies is acceptable; installing machine-wide tools requires explicit user approval.
 
-When a phase is confirmed working, commit the changes with an appropriate Conventional Commit message.
+When a phase is confirmed working, prepare a clear Conventional Commit message and summarize the verified changes, but do not commit or push until the user explicitly says to commit.
 
 ## Commit & Pull Request Guidelines
 
