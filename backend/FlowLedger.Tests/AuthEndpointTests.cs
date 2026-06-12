@@ -9,7 +9,8 @@ using FlowLedger.Application.Auth;
 
 namespace FlowLedger.Tests;
 
-public class AuthEndpointTests : IClassFixture<AuthEndpointFixture>
+[Collection("Api endpoints")]
+public class AuthEndpointTests
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -48,6 +49,20 @@ public class AuthEndpointTests : IClassFixture<AuthEndpointFixture>
         token.Claims.Single(x => x.Type == "role").Value.Should().Be("Sales");
         token.ValidTo.Should().BeAfter(DateTime.UtcNow.AddMinutes(4));
         token.ValidTo.Should().BeBefore(DateTime.UtcNow.AddMinutes(6));
+    }
+
+    [Fact]
+    public async Task Login_WithInvalidEmailShape_ReturnsBadRequest()
+    {
+        using var client = _fixture.Factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync(
+            "/api/auth/login",
+            new LoginRequestDto("not-an-email", TestAuthSeedData.TestSalesPassword));
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        body.Should().Contain("Email");
     }
 
     [Fact]

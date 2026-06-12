@@ -324,3 +324,224 @@
   - `curl -I http://localhost:5173` returned `HTTP/1.1 200 OK`.
 - Current state:
   - Local Docker stack left running for manual review.
+
+## Phase 4: Billing request APIs
+
+### Built
+
+- Added billing request application DTOs, query model, paged result model, and `IBillingRequestService`.
+- Added current-user application model and API claims mapping from JWT claims.
+- Added `BillingRequestService` with:
+  - create draft request
+  - list requests with status, customer, assigned-to-me, created-by-me, search, date, and paging filters
+  - detail view with customer, line items, comments, audit logs, generated invoice, and available actions
+  - update draft/rejected request
+  - submit draft/rejected request to Accounts review
+  - comments
+  - Accounts approval
+  - Manager approval
+  - rejection back to Sales
+  - invoice generation during approval
+  - audit logs for create, update, submit, assignment, comment, approval, rejection, and invoice generation
+- Added `BillingRequestsController`.
+- Added `CustomersController` for the planned `GET /api/customers` create-form support endpoint.
+- Reused role policies and enforced workflow rules in the service layer.
+- Reworked endpoint test fixture to share one SQL Server container for API endpoint tests.
+
+### Verification
+
+- Local `dotnet` was not available in this shell. No global install was performed.
+- Passed: backend build through Docker SDK container.
+  - Command: `docker run --rm -v "$PWD:/src" -w /src/backend mcr.microsoft.com/dotnet/sdk:8.0-alpine sh -lc 'dotnet restore FlowLedger.sln && dotnet build FlowLedger.sln --no-restore'`.
+  - Result: build succeeded with 0 warnings and 0 errors.
+- Passed: Phase 4 filtered backend tests.
+  - Command: `dotnet test FlowLedger.sln --no-build --filter "FullyQualifiedName~BillingRequest"` inside the SDK container with Testcontainers Docker socket access.
+  - Result: 10 tests passed, 0 failed.
+  - Coverage added:
+    - service-level create calculates subtotal, VAT, total, and writes create audit log
+    - service-level unauthorized Sales approval throws
+    - API create/list/detail/submit flow
+    - Accounts approval under threshold generates invoice and audit logs
+    - Accounts approval above threshold moves request to manager approval
+    - Manager approval generates invoice
+    - Accounts rejection lets Sales update and resubmit
+    - comments add comment and audit log
+    - unauthorized Sales approval returns forbidden
+
+### Notes
+
+- Initial endpoint tests exposed EF Core tracking issues when adding new audit logs and line items with pre-set Guid IDs through unloaded navigation collections.
+- Fix: add new audit logs and line items through `DbSet.Add(...)`.
+- Phase 4 is implemented and verified.
+
+## Phase 5: Invoice APIs
+
+### Built
+
+- Added invoice application DTOs, query model, and `IInvoiceService`.
+- Added `InvoiceService` with:
+  - invoice list with status, customer, search, and paging filters
+  - invoice detail with customer and billing request summary
+  - mark paid
+  - billing request status update to `Paid`
+  - payment audit log
+- Added `InvoicesController`.
+- Enforced Accounts/Admin-only payment marking.
+
+### Verification
+
+- Passed: Phase 5 filtered backend tests.
+  - Command: `dotnet test FlowLedger.sln --no-build --filter "FullyQualifiedName~InvoiceEndpointTests"` inside the SDK container with Testcontainers Docker socket access.
+  - Result: 3 tests passed, 0 failed.
+  - Coverage added:
+    - invoice list and detail return generated invoice data
+    - Accounts can mark issued invoice paid
+    - payment marking updates invoice status, billing request status, paid timestamp, and audit log
+    - Sales cannot mark invoice paid
+
+### Notes
+
+- Phase 5 is implemented and verified.
+
+## Phase 6: Dashboard APIs
+
+### Built
+
+- Added dashboard application DTOs and `IDashboardService`.
+- Added `DashboardService` with:
+  - summary cards
+  - status breakdown
+  - monthly invoice trend
+  - aging buckets
+  - recent activity
+- Added `DashboardController`.
+
+### Verification
+
+- Passed: Phase 6 filtered backend tests.
+  - Command: `dotnet test FlowLedger.sln --no-build --filter "FullyQualifiedName~DashboardEndpointTests"` inside the SDK container with Testcontainers Docker socket access.
+  - Result: 1 test passed, 0 failed.
+  - Coverage added:
+    - dashboard returns summary card values, status breakdown, invoice trend, aging buckets, and recent activity
+- Passed: full backend test suite.
+  - Command: `docker run --rm -e TESTCONTAINERS_RYUK_DISABLED=true -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -v "$PWD:/src" -v /var/run/docker.sock:/var/run/docker.sock -w /src/backend mcr.microsoft.com/dotnet/sdk:8.0-alpine sh -lc 'dotnet test FlowLedger.sln --logger "console;verbosity=minimal"'`.
+  - Result: 25 tests passed, 0 failed.
+- Passed: frontend production build.
+  - Command: `cd frontend/flowledger-web && npm run build`.
+  - Result: TypeScript and Vite production build succeeded.
+- Passed: Docker Compose runtime smoke check.
+  - Command: `docker compose up --build -d`.
+  - Result: SQL Server became healthy, API started on `http://localhost:8080`, and frontend started on `http://localhost:5173`.
+  - API smoke result: login as Sales, Accounts, and Admin using local `.env` secrets succeeded.
+  - API smoke result: created a billing request, submitted it, approved it, generated an issued invoice, found it through invoice search, and loaded dashboard summary.
+  - API smoke output: `smoke ok InvoiceGenerated Issued 1 18`.
+  - Frontend smoke result: `curl -I http://localhost:5173` returned `HTTP/1.1 200 OK`.
+  - Cleanup: `docker compose down -v --remove-orphans` stopped and removed containers, network, and SQL Server volume.
+
+### Notes
+
+- Initial dashboard test exposed an EF Core SQL translation issue from projecting `enum.ToString()` inside a grouped query.
+- Fix: group in SQL, materialize rows, then convert enum values to strings in memory.
+- Phase 6 is implemented and verified.
+- Per project instruction, changes are not committed yet. Commit only after explicit user signal.
+
+## Validation hardening after Phase 4-6 review
+
+### Built
+
+- Added FluentValidation to the Application layer.
+- Added request validators for:
+  - `LoginRequestDto`
+  - `CreateBillingRequestDto`
+  - `CreateBillingRequestLineItemDto`
+  - `UpdateBillingRequestDto`
+  - `ApproveBillingRequestDto`
+  - `RejectBillingRequestDto`
+  - `AddCommentDto`
+- Added an async API validation filter that:
+  - resolves matching `IValidator<T>` instances for action arguments
+  - runs `ValidateAsync`
+  - returns `400 Bad Request` with `ValidationProblemDetails`
+  - prevents controller/service execution when request shape is invalid
+- Removed duplicate manual request-shape validation from `BillingRequestService`.
+- Kept business/workflow guards in services:
+  - not-found checks
+  - role checks
+  - status-transition checks
+  - customer existence checks
+  - invoice payment-state checks
+
+### Verification
+
+- Passed: backend restore/build through Docker SDK container.
+  - Command: `docker run --rm -v "$PWD:/src" -w /src/backend mcr.microsoft.com/dotnet/sdk:8.0-alpine sh -lc 'dotnet restore FlowLedger.sln && dotnet build FlowLedger.sln --no-restore'`.
+  - Result: build succeeded with 0 warnings and 0 errors.
+- Passed: full backend test suite.
+  - Command: `docker run --rm -e TESTCONTAINERS_RYUK_DISABLED=true -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -v "$PWD:/src" -v /var/run/docker.sock:/var/run/docker.sock -w /src/backend mcr.microsoft.com/dotnet/sdk:8.0-alpine sh -lc 'dotnet test FlowLedger.sln --logger "console;verbosity=minimal"'`.
+  - Result: 28 tests passed, 0 failed.
+  - Coverage added:
+    - invalid login email shape returns `400 Bad Request`
+    - invalid billing request create payload returns `400 Bad Request`
+    - empty comment body returns `400 Bad Request`
+- Passed: frontend production build.
+  - Command: `cd frontend/flowledger-web && npm run build`.
+  - Result: TypeScript and Vite production build succeeded.
+- Passed: Docker Compose runtime smoke check after validation change.
+  - Command: `docker compose up --build -d`.
+  - Result: SQL Server became healthy, API started, and frontend started.
+  - API smoke result: invalid billing request payload returned `400`.
+  - API smoke result: login, create billing request, submit, approve, and invoice generation still worked.
+  - API smoke output: `validation smoke ok InvoiceGenerated Issued`.
+  - Cleanup: `docker compose down -v --remove-orphans` stopped and removed containers, network, and SQL Server volume.
+
+### Notes
+
+- Local `dotnet` was still unavailable in this shell. No global install was performed.
+- `DbContext.Add(...)`, collection `.ToList()`, and property assignments are in-memory operations, not database I/O. Database reads and writes remain async (`ToListAsync`, `SingleOrDefaultAsync`, `CountAsync`, `SaveChangesAsync`, etc.).
+- A full repository pattern was not added. The build plan explicitly says not to add a full repository pattern over EF Core unless necessary. EF Core `DbContext` is already the unit-of-work/repository abstraction for this scope.
+- Per project instruction, changes are not committed yet. Commit only after explicit user signal.
+
+## Dashboard period filter and query optimization
+
+### Built
+
+- Added `DashboardQuery` with `periodMonths`.
+- Added FluentValidation for dashboard period values.
+  - Allowed values: `1`, `3`, `6`, and `12`.
+  - Default period: `1` month.
+- Updated `GET /api/dashboard/summary` to accept `periodMonths` from query string.
+- Refactored `DashboardService.GetSummaryAsync`.
+  - Request reporting data is loaded as a bounded projection for the selected period.
+  - Invoice reporting data is loaded as a bounded projection for the selected period.
+  - Current pending request data is loaded separately so old/stale pending approvals are not hidden by the period filter.
+  - Recent activity is filtered to the selected period and limited to 10 rows.
+- Reduced repeated request/invoice database roundtrips by deriving multiple dashboard values from bounded projected rows in memory.
+- Kept full entities and navigation-heavy loads out of dashboard summary calculations.
+
+### Verification
+
+- Passed: backend restore/build through Docker SDK container.
+  - Command: `docker run --rm -v "$PWD:/src" -w /src/backend mcr.microsoft.com/dotnet/sdk:8.0-alpine sh -lc 'dotnet restore FlowLedger.sln && dotnet build FlowLedger.sln --no-restore'`.
+  - Result: build succeeded with 0 warnings and 0 errors.
+- Passed: full backend test suite.
+  - Command: `docker run --rm -e TESTCONTAINERS_RYUK_DISABLED=true -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -v "$PWD:/src" -v /var/run/docker.sock:/var/run/docker.sock -w /src/backend mcr.microsoft.com/dotnet/sdk:8.0-alpine sh -lc 'dotnet test FlowLedger.sln --logger "console;verbosity=minimal"'`.
+  - Result: 29 tests passed, 0 failed.
+  - Coverage added:
+    - dashboard summary accepts `periodMonths=6` and returns seeded reporting data
+    - invalid `periodMonths=2` returns `400 Bad Request`
+- Passed: frontend production build.
+  - Command: `cd frontend/flowledger-web && npm run build`.
+  - Result: TypeScript and Vite production build succeeded.
+- Passed: Docker Compose runtime smoke check.
+  - Command: `docker compose up --build -d`.
+  - Result: SQL Server became healthy, API started, and frontend started.
+  - API smoke result: `GET /api/dashboard/summary?periodMonths=2` returned `400`.
+  - API smoke result: default dashboard period returned current one-month reporting data.
+  - API smoke result: `GET /api/dashboard/summary?periodMonths=6` returned seeded reporting data and current pending backlog.
+  - API smoke output: `dashboard period smoke ok 0 17 3`.
+  - Cleanup: `docker compose down -v --remove-orphans` stopped and removed containers, network, and SQL Server volume.
+
+### Notes
+
+- Default one-month reporting returns `0` seeded requests right now because seed data is from January 2026 and current date is June 2026. Current pending backlog remains visible.
+- Per project instruction, changes are not committed yet. Commit only after explicit user signal.

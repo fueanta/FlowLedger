@@ -2,8 +2,11 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Serialization;
 using FlowLedger.Api.Auth;
+using FlowLedger.Api.Validation;
 using FlowLedger.Application.Auth;
+using FlowLedger.Application.BillingRequests;
 using FlowLedger.Infrastructure.Extensions;
+using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -15,7 +18,8 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 var jwtOptions = BuildJwtOptions(builder);
 
 builder.Services.AddSingleton(Options.Create(jwtOptions));
-builder.Services.AddControllers()
+builder.Services.AddValidatorsFromAssemblyContaining<CreateBillingRequestDtoValidator>();
+builder.Services.AddControllers(options => options.Filters.Add<FluentValidationActionFilter>())
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
