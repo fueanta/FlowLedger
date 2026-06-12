@@ -28,6 +28,10 @@ services:
       Jwt__Issuer: "${JWT_ISSUER:-FlowLedger}"
       Jwt__Audience: "${JWT_AUDIENCE:-FlowLedgerWeb}"
       Jwt__Key: "${JWT_KEY:?Set JWT_KEY in .env or shell}"
+      SeedUsers__SalesPassword: "${SeedUsers__SalesPassword:-}"
+      SeedUsers__AccountsPassword: "${SeedUsers__AccountsPassword:-}"
+      SeedUsers__ManagerPassword: "${SeedUsers__ManagerPassword:-}"
+      SeedUsers__AdminPassword: "${SeedUsers__AdminPassword:-}"
     ports:
       - "8080:8080"
     depends_on:

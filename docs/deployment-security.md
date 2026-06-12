@@ -26,6 +26,8 @@ Production deployment should use:
 - Private networking between API and SQL Server.
 - A strong generated SQL credential, rotated regularly, or managed identity where the platform supports it.
 - A strong JWT signing key loaded from the secret store.
+- Seeded demo-user passwords supplied through secret storage or protected environment variables, never committed as plaintext.
+- JWT access-token expiry managed through the database setting `Jwt.AccessTokenMinutes`.
 - Separate credentials for development, staging, and production.
 - TLS/encryption enforced for database and public API traffic.
 

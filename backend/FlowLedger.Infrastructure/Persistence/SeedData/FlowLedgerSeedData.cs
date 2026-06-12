@@ -5,6 +5,8 @@ namespace FlowLedger.Infrastructure.Persistence.SeedData;
 
 public static class FlowLedgerSeedData
 {
+    public const string JwtAccessTokenMinutesKey = "Jwt.AccessTokenMinutes";
+
     public static readonly Guid SalesUserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     public static readonly Guid AccountsUserId = Guid.Parse("22222222-2222-2222-2222-222222222222");
     public static readonly Guid ManagerUserId = Guid.Parse("33333333-3333-3333-3333-333333333333");
@@ -56,6 +58,16 @@ public static class FlowLedgerSeedData
             Role = RoleName.Admin,
             IsActive = true,
             CreatedAtUtc = BaseDate
+        }
+    ];
+
+    public static readonly AppSetting[] AppSettings =
+    [
+        new()
+        {
+            Key = JwtAccessTokenMinutesKey,
+            Value = "30",
+            Description = "Access token lifetime in minutes."
         }
     ];
 

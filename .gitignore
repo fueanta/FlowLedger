@@ -3,6 +3,7 @@ obj/
 .vs/
 .vscode/
 .idea/
+*.DotSettings.user
 .codex/environments/
 
 node_modules/

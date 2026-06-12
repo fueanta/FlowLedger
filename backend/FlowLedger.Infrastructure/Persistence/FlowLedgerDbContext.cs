@@ -13,6 +13,7 @@ public class FlowLedgerDbContext(DbContextOptions<FlowLedgerDbContext> options) 
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<AppSetting> AppSettings => Set<AppSetting>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

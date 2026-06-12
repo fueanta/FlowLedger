@@ -131,3 +131,196 @@
   - Result: planned journey rows still matched: `BR-2026-0004`, `BR-2026-0006`, `BR-2026-0008`, and `INV-2026-0003`.
   - Cleanup: `docker compose down -v --remove-orphans` stopped and removed containers, network, and SQL Server volume.
 - Phase 2 remains signed off and ready for Phase 3.
+
+## Phase 3: Auth
+
+### Built
+
+- Added Application auth contracts and DTOs:
+  - `IAuthService`
+  - `IJwtTokenGenerator`
+  - `LoginRequestDto`
+  - `LoginResponseDto`
+  - `UserDto`
+- Added seeded-user auth service.
+  - Accepts only active users with database-backed password hashes and salts.
+  - Does not use hardcoded app passwords.
+  - Bootstraps local/demo seeded-user password hashes from environment values when provided.
+- Added JWT token generation with required claims:
+  - `sub`
+  - `email`
+  - `name`
+  - `role`
+- Added API auth endpoints:
+  - `POST /api/auth/login`
+  - `GET /api/auth/me`
+- Added JWT bearer authentication and role policies:
+  - `SalesOnly`
+  - `AccountsOnly`
+  - `ManagerOnly`
+  - `InternalUser`
+- Added Swagger/OpenAPI support with bearer token security scheme.
+- Enabled Swagger UI outside Production only.
+- Configured enum JSON serialization so API responses return role names like `Sales`, not numeric enum values.
+- Kept secrets out of source:
+  - Production requires `Jwt__Key`.
+  - Docker Compose still requires `JWT_KEY`.
+  - Non-production without `Jwt__Key` uses an ephemeral in-memory key so `/health` and local smoke runs can still start without a committed secret.
+
+### Verification
+
+- Passed: `dotnet restore backend/FlowLedger.sln`.
+  - Result: restore succeeded after adding JWT Bearer and Swagger packages.
+- Passed: `dotnet build backend/FlowLedger.sln --no-restore`.
+  - Result: build succeeded with 0 warnings and 0 errors.
+- Initial backend test run failed before fixes:
+  - Command: `dotnet test backend/FlowLedger.sln --no-build`.
+  - Result: 8 passed, 4 failed.
+  - Cause: auth integration test configuration was applied too late for minimal hosting, and Swagger assertion expected compact JSON spacing.
+  - Fix: moved test configuration to environment variables before `WebApplicationFactory` startup and adjusted Swagger assertion.
+- Passed after fixes and final hardening: `dotnet test backend/FlowLedger.sln --no-build`.
+  - Result: 12 tests passed, 0 failed.
+  - Coverage added:
+    - Auth service accepts a test-only user whose password hash is stored in the test database.
+    - Auth service rejects wrong password.
+    - Auth service resolves current test user.
+    - `POST /api/auth/login` returns JWT and test user.
+    - JWT contains `sub`, `email`, `name`, and `role` claims.
+    - JWT expiry uses database setting `Jwt.AccessTokenMinutes`.
+    - Invalid login returns `401 Unauthorized`.
+    - `GET /api/auth/me` returns current user with a valid token.
+    - `GET /api/auth/me` returns `401 Unauthorized` without a token.
+    - Swagger document includes bearer security scheme.
+- Passed: `cd frontend/flowledger-web && npm run build`.
+  - Result: TypeScript and Vite production build succeeded.
+- Passed: Docker Compose runtime smoke check from a clean SQL Server volume.
+  - Command: generated temporary local secrets in shell, then ran `docker compose down -v --remove-orphans` and `docker compose up --build -d`.
+  - Result: SQL Server reached healthy state, API and web containers started, and API migration created/seeded the database.
+  - Checked: `curl http://localhost:8080/health`.
+  - Result: returned `{ "status": "ok" }`.
+  - Checked: `curl http://localhost:8080/swagger/v1/swagger.json`.
+  - Result: Swagger JSON contained the bearer security scheme.
+  - Checked: `curl POST http://localhost:8080/api/auth/login` with `sales@flowledger.local` and a password supplied through `SeedUsers__SalesPassword`.
+  - Result: returned an access token and user role `Sales`.
+  - Checked: `curl http://localhost:8080/api/auth/me` with the returned bearer token.
+  - Result: returned `sales@flowledger.local` with role `Sales`.
+  - Checked: `curl -I http://localhost:5173`.
+  - Result: returned `HTTP/1.1 200 OK`.
+  - Checked: in-app browser loaded `http://localhost:8080/swagger`.
+  - Result: Swagger UI showed `/api/auth/login`, `/api/auth/me`, and `Authorize` with 0 console errors.
+  - Checked after final Docker image rebuild: Swagger UI `Try it out` for `POST /api/auth/login`.
+  - Result: seeded credentials returned `200` and an `accessToken`.
+  - Cleanup: `docker compose down -v --remove-orphans` stopped and removed containers, network, and SQL Server volume.
+
+### Notes
+
+- Phase 3 is implemented and verified.
+- Per project instruction, changes are not committed yet. Commit only after explicit user signal.
+
+### Security hardening after review
+
+- Reworked auth so app credentials are no longer hardcoded.
+  - Added `PasswordHash` and `PasswordSalt` columns to `Users`.
+  - Added PBKDF2 password hashing with per-password salt.
+  - Login now verifies the supplied password against the database hash.
+  - Seeded demo users have blank hashes in git-tracked seed data.
+  - Local/demo hashes are bootstrapped only from environment values like `SeedUsers__SalesPassword`.
+- Added `AppSettings` table.
+  - Seeded `Jwt.AccessTokenMinutes = 30`.
+  - JWT generation reads token expiry from the database setting.
+- Added EF migration `AddAuthSecurityFields`.
+- Separated test credentials from regular app seed data.
+  - Unit and integration auth tests now use a test-only user row: `auth-test-sales@flowledger.local`.
+  - Tests create the test user's password hash in the test database.
+- Added `docs/backlog.md` with regular-priority item for admin-driven active session revocation.
+- Updated `docs/erp_workflow_build_plan.md`.
+  - Removed plaintext demo password references.
+  - Added DB-backed password hash guidance.
+  - Added UI-phase instruction: expired JWT causing `401` must clear auth state, redirect to `/login`, and ask user to log in again.
+- Updated `docs/deployment-security.md` and `.env.example` with seeded-user password environment variables.
+- Updated `docker-compose.yml` so API receives `SeedUsers__*Password` environment values.
+
+### Re-verification after hardening
+
+- Passed: `dotnet restore backend/FlowLedger.sln`.
+  - Result: all projects up to date.
+- Passed: `dotnet build backend/FlowLedger.sln --no-restore`.
+  - Result: build succeeded with 0 warnings and 0 errors.
+- Initial test rerun after hardening failed once:
+  - Command: `dotnet test backend/FlowLedger.sln --no-build`.
+  - Result: 11 passed, 1 failed.
+  - Cause: `IJwtTokenGenerator` was registered even when no database connection was configured, but JWT expiry now depends on database settings.
+  - Fix: register `IJwtTokenGenerator` only when infrastructure/database services are registered.
+- Passed after fix: `dotnet test backend/FlowLedger.sln --no-build`.
+  - Result: 12 tests passed, 0 failed.
+  - Coverage confirmed:
+    - DB-backed password verification.
+    - Wrong password rejection.
+    - Test-only auth data separated from app seed users.
+    - JWT contains required claims.
+    - JWT expiry comes from `Jwt.AccessTokenMinutes` database setting.
+    - Swagger bearer security scheme.
+- Passed: `cd frontend/flowledger-web && npm run build`.
+  - Result: TypeScript and Vite production build succeeded.
+- Passed: Docker Compose clean-volume verification.
+  - Command: generated temporary SQL/JWT secrets and temporary `SeedUsers__*Password` values in shell, then ran `docker compose up --build -d`.
+  - First smoke attempt returned `401` for login.
+  - Cause: `docker-compose.yml` did not pass `SeedUsers__*Password` values into the API container.
+  - Fix: added those environment mappings to the API service.
+  - Retest result: API `/health` returned `{ "status": "ok" }`.
+  - Retest result: `POST /api/auth/login` with `sales@flowledger.local` and the generated `SeedUsers__SalesPassword` returned an access token.
+  - Retest result: `GET /api/auth/me` with the returned token returned `sales@flowledger.local` and role `Sales`.
+  - Retest result: token expiry decoded to 30 minutes from the database setting.
+  - Retest result: frontend returned `HTTP/1.1 200 OK`.
+  - Retest result: Swagger UI `Try it out` login returned `200` and an `accessToken` with 0 console errors.
+  - Cleanup: `docker compose down -v --remove-orphans` stopped and removed containers, network, and SQL Server volume.
+
+### Review feedback fixes
+
+- Reworked app-setting reader API.
+  - Replaced vague `GetIntAsync(...)` with `IAppSettingReader.ReadValueAsync(key, cancellationToken)`.
+  - Kept one generic database-backed setting reader so future settings do not need one method each.
+  - JWT token generation parses `Jwt.AccessTokenMinutes` at the call site.
+- Updated auth service unit tests to use a shared DI fixture.
+  - Tests now register `FlowLedgerDbContext`, `IAuthService`, `IPasswordHasher`, and fake `IJwtTokenGenerator` in `ServiceCollection`.
+  - The fixture creates one service provider and scope for the class.
+  - Tests resolve `IAuthService` from the fixture instead of manually constructing `AuthService`.
+- Passed: `dotnet build backend/FlowLedger.sln --no-restore`.
+  - Result: build succeeded with 0 warnings and 0 errors.
+- Passed: `dotnet test backend/FlowLedger.sln --no-build`.
+  - Result: 12 tests passed, 0 failed.
+
+### Test container fixture optimization
+
+- Replaced per-test SQL Server Testcontainers setup with class fixtures.
+  - `DatabaseMigrationFixture` owns one SQL Server container for all database migration tests.
+  - `AuthEndpointFixture` owns one SQL Server container and one `WebApplicationFactory` for all auth endpoint tests.
+  - Auth endpoint fixture seeds the test-only user once per class fixture.
+- Expected Docker behavior:
+  - Integration tests now create one SQL Server container per integration test class, not one per test method.
+  - Current backend test run uses 2 SQL Server containers for 8 SQL-backed tests instead of about 8 containers.
+- Passed: `dotnet build backend/FlowLedger.sln --no-restore`.
+  - Result: build succeeded with 0 warnings and 0 errors.
+- Passed: `dotnet test backend/FlowLedger.sln --no-build`.
+  - Result: 12 tests passed, 0 failed.
+  - Runtime improved from roughly 35 seconds to roughly 10 seconds on this machine.
+
+### Local deployment for manual Phase 3 review
+
+- Created a local gitignored `.env` file with generated development-only values.
+  - File permissions: owner read/write only.
+  - Values are not tracked by git.
+- Passed: `docker compose up --build -d`.
+  - Result: SQL Server became healthy.
+  - Result: API container started on `http://localhost:8080`.
+  - Result: frontend container started on `http://localhost:5173`.
+- Passed: local API smoke checks.
+  - `GET http://localhost:8080/health` returned `{ "status": "ok" }`.
+  - Swagger JSON contained bearer security scheme.
+  - `POST http://localhost:8080/api/auth/login` with `sales@flowledger.local` and the local `.env` `SeedUsers__SalesPassword` returned an access token.
+  - `GET http://localhost:8080/api/auth/me` with the returned token returned `sales@flowledger.local` and role `Sales`.
+  - Token expiry decoded to 30 minutes from the database setting.
+- Passed: frontend smoke check.
+  - `curl -I http://localhost:5173` returned `HTTP/1.1 200 OK`.
+- Current state:
+  - Local Docker stack left running for manual review.

@@ -787,14 +787,14 @@ Use delete behavior carefully:
 
 Seed exactly these users.
 
-| Name | Email | Role | Password |
-|---|---|---|---|
-| Sarah Sales | sales@flowledger.local | Sales | password |
-| Amir Accounts | accounts@flowledger.local | Accounts | password |
-| Mona Manager | manager@flowledger.local | Manager | password |
-| Adam Admin | admin@flowledger.local | Admin | password |
+| Name | Email | Role |
+|---|---|---|
+| Sarah Sales | sales@flowledger.local | Sales |
+| Amir Accounts | accounts@flowledger.local | Accounts |
+| Mona Manager | manager@flowledger.local | Manager |
+| Adam Admin | admin@flowledger.local | Admin |
 
-For simplicity, do not store passwords in the database. The login endpoint can accept these emails and password `password`, then issue a JWT based on seeded user identity.
+Store password hashes and salts in the database. Do not commit plaintext demo credentials. Local/demo seeded-user passwords must be bootstrapped from environment values such as `SeedUsers__SalesPassword`, `SeedUsers__AccountsPassword`, `SeedUsers__ManagerPassword`, and `SeedUsers__AdminPassword`.
 
 This is acceptable because the assignment says mocked users/roles are fine.
 
@@ -892,7 +892,7 @@ Request:
 ```json
 {
   "email": "sales@flowledger.local",
-  "password": "password"
+  "password": "configured-outside-git"
 }
 ```
 
@@ -1227,9 +1227,9 @@ Mention these as future improvements in README.
 
 ## 15.1 Login approach
 
-Use simple seeded-user login.
+Use simple seeded-user login backed by database password hashes.
 
-The user enters email and password. If password is `password` and email matches a seeded user, return JWT.
+The user enters email and password. If the email matches an active seeded user and the provided password verifies against the stored hash and salt, return JWT. Test credentials must use separate test-only users and must not reuse regular seeded app users.
 
 JWT claims:
 
@@ -1273,6 +1273,8 @@ localStorage key: flowledger_user
 
 This is acceptable for a take-home mocked internal app. Mention in design note that production would use more secure token handling.
 
+JWT access-token expiry is stored in the database setting `Jwt.AccessTokenMinutes`.
+
 ## 15.4 Axios interceptor
 
 Attach token to every API request:
@@ -1300,6 +1302,8 @@ api.interceptors.response.use(
   }
 );
 ```
+
+When a token expires and the API returns `401`, clear auth storage, redirect to `/login`, and show the user that the session expired and they need to log in again.
 
 ---
 
@@ -1931,7 +1935,7 @@ This helps reviewers understand the project inside the app.
 Login as:
 
 ```text
-sales@flowledger.local / password
+sales@flowledger.local / configured outside git
 ```
 
 Journey:
@@ -1950,7 +1954,7 @@ Journey:
 Login as:
 
 ```text
-accounts@flowledger.local / password
+accounts@flowledger.local / configured outside git
 ```
 
 Journey:
@@ -1973,7 +1977,7 @@ Journey:
 Login as:
 
 ```text
-manager@flowledger.local / password
+manager@flowledger.local / configured outside git
 ```
 
 Journey:
@@ -1990,7 +1994,7 @@ Journey:
 Login as:
 
 ```text
-admin@flowledger.local / password
+admin@flowledger.local / configured outside git
 ```
 
 Journey:
@@ -2333,6 +2337,7 @@ Do not proceed until this works.
 4. Add login page.
 5. Add protected routes.
 6. Add app layout with sidebar/topbar.
+7. On `401` from an expired JWT, clear stored auth state, redirect to `/login`, and ask the user to log in again.
 
 ## Phase 8: Frontend pages
 
@@ -2438,15 +2443,15 @@ Create `README.md` with:
 ## AI tools used and review process
 ```
 
-## Demo credentials section
+## Demo access section
 
 ```markdown
-| Role | Email | Password |
+| Role | Email | Password source |
 |---|---|---|
-| Sales | sales@flowledger.local | password |
-| Accounts | accounts@flowledger.local | password |
-| Manager | manager@flowledger.local | password |
-| Admin | admin@flowledger.local | password |
+| Sales | sales@flowledger.local | `SeedUsers__SalesPassword` |
+| Accounts | accounts@flowledger.local | `SeedUsers__AccountsPassword` |
+| Manager | manager@flowledger.local | `SeedUsers__ManagerPassword` |
+| Admin | admin@flowledger.local | `SeedUsers__AdminPassword` |
 ```
 
 ## Run section
@@ -2696,7 +2701,7 @@ Before submission, verify:
 [ ] docker compose up --build works from clean clone
 [ ] Frontend opens at http://localhost:5173
 [ ] Swagger opens at http://localhost:8080/swagger
-[ ] Demo users can login
+[ ] Demo users can login with credentials supplied outside git
 [ ] Sales can create and submit request
 [ ] Accounts can approve low-value request and invoice is generated
 [ ] Accounts can escalate high-value request to manager
@@ -2707,7 +2712,7 @@ Before submission, verify:
 [ ] Unauthorized buttons are hidden in frontend
 [ ] Unauthorized API calls are rejected in backend
 [ ] Tests pass
-[ ] README includes setup and credentials
+[ ] README includes setup and credential environment variables
 [ ] Design note explains architecture and tradeoffs
 [ ] AI usage note is honest
 ```
