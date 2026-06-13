@@ -14,6 +14,8 @@ export type EnrollmentListParams = {
   search?: string
   status?: EnrollmentRequestStatus | ''
   requestedRole?: Role | ''
+  sortBy?: string
+  sortDirection?: 'asc' | 'desc'
 }
 
 export async function registerEnrollment(payload: RegisterEnrollmentPayload) {

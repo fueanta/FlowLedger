@@ -10,7 +10,7 @@ public sealed record WorkQueueQuery(
     string? SortBy = null,
     string? SortDirection = null,
     int Page = 1,
-    int PageSize = 20);
+    int PageSize = 25);
 
 public interface IWorkQueueService
 {

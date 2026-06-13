@@ -1,4 +1,5 @@
 import { apiClient } from '../lib/apiClient'
+import { downloadCsvBlob } from '../lib/downloadCsv'
 import type { BillingRequestDetail, BillingRequestListItem, BillingRequestStatus, PagedResult, WorkflowQueue } from '../types'
 
 export type BillingRequestQuery = {
@@ -27,6 +28,14 @@ export async function getBillingRequests(query: BillingRequestQuery) {
   })
 
   return response.data
+}
+
+export async function exportBillingRequests(query: Omit<BillingRequestQuery, 'page' | 'pageSize'>) {
+  const response = await apiClient.get<Blob>('/billing-requests/export', {
+    params: normalizeQuery(query),
+    responseType: 'blob',
+  })
+  downloadCsvBlob(response.data, 'billing-requests.csv', response.headers['content-disposition'])
 }
 
 export async function getWorkQueue(query: Pick<BillingRequestQuery, 'queue' | 'search' | 'sortBy' | 'sortDirection' | 'page' | 'pageSize'>) {

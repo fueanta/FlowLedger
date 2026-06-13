@@ -2,12 +2,14 @@ using FluentAssertions;
 using FlowLedger.Application.Audit;
 using FlowLedger.Application.BillingRequests;
 using FlowLedger.Application.Common;
+using FlowLedger.Application.Common.Csv;
 using FlowLedger.Application.Configuration;
 using FlowLedger.Domain.Entities;
 using FlowLedger.Domain.Enums;
 using FlowLedger.Infrastructure.BillingRequests;
 using FlowLedger.Infrastructure.Audit;
 using FlowLedger.Infrastructure.Configuration;
+using FlowLedger.Infrastructure.Common;
 using FlowLedger.Infrastructure.Persistence;
 using FlowLedger.Infrastructure.Persistence.SeedData;
 using Microsoft.EntityFrameworkCore;
@@ -281,6 +283,7 @@ public sealed class BillingRequestServiceFixture : IDisposable
         services.AddScoped<IBillingRequestService, BillingRequestService>();
         services.AddScoped<ISystemSettingsService, SystemSettingsService>();
         services.AddScoped<IWorkflowAuditWriter, WorkflowAuditWriter>();
+        services.AddScoped<ICsvExportService, CsvExportService>();
 
         _serviceProvider = services.BuildServiceProvider();
         _scope = _serviceProvider.CreateScope();

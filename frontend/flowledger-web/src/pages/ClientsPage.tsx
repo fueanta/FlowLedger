@@ -1,23 +1,28 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { QueryClient } from '@tanstack/react-query'
-import { Archive, Building2, Edit, Mail, Phone, Plus, Save, Search, X } from 'lucide-react'
+import type { ColumnDef } from '@tanstack/react-table'
+import { Archive, Building2, Edit, Mail, Phone, Plus, Save, X } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import { archiveClient, createClient, getClients, updateClient, type UpdateClientPayload } from '../api/clients'
+import { archiveClient, createClient, exportClients, getClients, updateClient, type UpdateClientPayload } from '../api/clients'
 import { useAuth } from '../auth/useAuth'
+import { DataTable } from '../components/data-table/DataTable'
+import { DataTableExportButton } from '../components/data-table/DataTableExportButton'
+import { DataTablePageSizeSelect } from '../components/data-table/DataTablePageSizeSelect'
+import { DataTableSearch } from '../components/data-table/DataTableSearch'
+import { DataTableSortableHeader } from '../components/data-table/DataTableSortableHeader'
+import { DataTableToolbar } from '../components/data-table/DataTableToolbar'
+import { useDataTableState } from '../components/data-table/dataTableState'
 import { PageHeader } from '../components/PageHeader'
-import { EmptyState, ErrorState, LoadingBlock } from '../components/StateViews'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
-import { Card, CardContent } from '../components/ui/card'
 import { Dialog } from '../components/ui/dialog'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { Select } from '../components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
 import { clientFormSchema, defaultClientFormValues, type ClientFormValues } from '../features/clientForm'
 import { getApiErrorMessage } from '../lib/apiClient'
 import { formatDate } from '../lib/format'
@@ -29,23 +34,25 @@ const clientStatuses: (ClientStatus | '')[] = ['', 'Active', 'Inactive', 'Archiv
 export function ClientsPage() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
-  const [search, setSearch] = useState('')
-  const deferredSearch = useDeferredValue(search)
+  const { state, setPage, setSearch, setSort, setPageSize } = useDataTableState({ sortBy: 'companyName', sortDirection: 'asc' })
   const [status, setStatus] = useState<ClientStatus | ''>('')
-  const [sortBy, setSortBy] = useState<'companyName' | 'status' | 'createdAtUtc' | 'updatedAtUtc'>('companyName')
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [formTarget, setFormTarget] = useState<Client | 'new' | null>(null)
   const [archiveTarget, setArchiveTarget] = useState<Client | null>(null)
+  const listParams = { search: state.search, status, sortBy: state.sortBy as 'companyName' | 'status' | 'createdAtUtc' | 'updatedAtUtc', sortDirection: state.sortDirection }
 
   const clientsQuery = useQuery({
-    queryKey: ['clients', { search: deferredSearch, status, sortBy, sortDirection }],
-    queryFn: () => getClients({ search: deferredSearch, status, sortBy, sortDirection, pageSize: 100 }),
+    queryKey: ['clients', { ...listParams, page: state.page, pageSize: state.pageSize }],
+    queryFn: () => getClients({ ...listParams, page: state.page, pageSize: state.pageSize }),
   })
 
-  const clients = useMemo(() => clientsQuery.data?.items ?? [], [clientsQuery.data?.items])
   const canCreate = user ? canCreateClient(user.role) : false
   const canEdit = user ? canEditClient(user.role) : false
   const canArchive = user ? canArchiveClient(user.role) : false
+
+  const exportMutation = useMutation({
+    mutationFn: () => exportClients(listParams),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Client export failed.')),
+  })
 
   const createMutation = useMutation({
     mutationFn: createClient,
@@ -77,6 +84,77 @@ export function ClientsPage() {
     onError: (error) => toast.error(getApiErrorMessage(error, 'Client could not be archived.')),
   })
 
+  const columns = useMemo<ColumnDef<Client>[]>(
+    () => [
+      {
+        accessorKey: 'companyName',
+        header: () => <DataTableSortableHeader label="Company" column="companyName" sortBy={state.sortBy} sortDirection={state.sortDirection} onSort={setSort} />,
+        cell: ({ row }) => (
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-blue-50 text-blue-950">
+              <Building2 className="h-4 w-4" aria-hidden="true" />
+            </div>
+            <div>
+              <p className="font-semibold text-slate-950">{row.original.companyName}</p>
+              <p className="mt-1 max-w-80 text-sm text-slate-600">{row.original.address}</p>
+            </div>
+          </div>
+        ),
+      },
+      {
+        id: 'contact',
+        header: 'Contact',
+        cell: ({ row }) => (
+          <div className="space-y-1 text-sm text-slate-700">
+            <p className="font-medium text-slate-950">{row.original.contactPerson}</p>
+            <p className="flex items-center gap-2">
+              <Mail className="h-4 w-4 text-slate-500" aria-hidden="true" />
+              {row.original.email}
+            </p>
+            {row.original.phone ? (
+              <p className="flex items-center gap-2">
+                <Phone className="h-4 w-4 text-slate-500" aria-hidden="true" />
+                {row.original.phone}
+              </p>
+            ) : null}
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'status',
+        header: () => <DataTableSortableHeader label="Status" column="status" sortBy={state.sortBy} sortDirection={state.sortDirection} onSort={setSort} />,
+        cell: ({ row }) => <ClientStatusBadge status={row.original.status} />,
+      },
+      { accessorKey: 'taxIdentifier', header: 'Tax ID', cell: ({ row }) => row.original.taxIdentifier || 'None' },
+      {
+        accessorKey: 'updatedAtUtc',
+        header: () => <DataTableSortableHeader label="Updated" column="updatedAtUtc" sortBy={state.sortBy} sortDirection={state.sortDirection} onSort={setSort} />,
+        cell: ({ row }) => formatDate(row.original.updatedAtUtc),
+      },
+      {
+        id: 'actions',
+        header: () => <span className="sr-only">Actions</span>,
+        cell: ({ row }) => (
+          <div className="flex justify-end gap-2">
+            {canEdit && row.original.status !== 'Archived' ? (
+              <Button variant="outline" size="sm" onClick={() => setFormTarget(row.original)}>
+                <Edit className="h-4 w-4" aria-hidden="true" />
+                Edit
+              </Button>
+            ) : null}
+            {canArchive && row.original.status !== 'Archived' ? (
+              <Button variant="destructive" size="sm" onClick={() => setArchiveTarget(row.original)}>
+                <Archive className="h-4 w-4" aria-hidden="true" />
+                Archive
+              </Button>
+            ) : null}
+          </div>
+        ),
+      },
+    ],
+    [canArchive, canEdit, setSort, state.sortBy, state.sortDirection],
+  )
+
   return (
     <>
       <PageHeader
@@ -92,127 +170,41 @@ export function ClientsPage() {
         }
       />
 
-      <Card className="mb-4">
-        <CardContent className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-5">
-          <div className="space-y-2 xl:col-span-2">
-            <Label htmlFor="client-search">Search</Label>
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-slate-500" aria-hidden="true" />
-              <Input
-                id="client-search"
-                className="pl-9"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Company, email, or contact"
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="client-status">Status</Label>
-            <Select id="client-status" value={status} onChange={(event) => setStatus(event.target.value as ClientStatus | '')}>
-              {clientStatuses.map((item) => (
-                <option key={item || 'all'} value={item}>
-                  {item || 'All statuses'}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="client-sort">Sort</Label>
-            <Select id="client-sort" value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)}>
-              <option value="companyName">Company</option>
-              <option value="status">Status</option>
-              <option value="createdAtUtc">Created date</option>
-              <option value="updatedAtUtc">Updated date</option>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="client-sort-direction">Direction</Label>
-            <Select id="client-sort-direction" value={sortDirection} onChange={(event) => setSortDirection(event.target.value as typeof sortDirection)}>
-              <option value="asc">Ascending</option>
-              <option value="desc">Descending</option>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      <DataTableToolbar actions={<DataTableExportButton onExport={() => exportMutation.mutate()} disabled={exportMutation.isPending} />}>
+        <DataTableSearch value={state.search} onChange={setSearch} label="Search company, email, or contact" />
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-900" htmlFor="client-status">
+            Status
+          </label>
+          <Select
+            id="client-status"
+            value={status}
+            onChange={(event) => {
+              setStatus(event.target.value as ClientStatus | '')
+              setPage(1)
+            }}
+          >
+            {clientStatuses.map((item) => (
+              <option key={item || 'all'} value={item}>
+                {item || 'All statuses'}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <DataTablePageSizeSelect value={state.pageSize} onChange={setPageSize} />
+      </DataTableToolbar>
 
-      {clientsQuery.isLoading ? <LoadingBlock /> : null}
-      {clientsQuery.isError ? <ErrorState message="Clients could not be loaded." onRetry={() => void clientsQuery.refetch()} /> : null}
-      {!clientsQuery.isLoading && !clientsQuery.isError && clients.length === 0 ? (
-        <EmptyState title="No clients found" message="Adjust filters or create a new client if your role allows it." />
-      ) : null}
-
-      {clients.length > 0 ? (
-        <Card>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Company</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Tax ID</TableHead>
-                  <TableHead>Updated</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {clients.map((client) => (
-                  <TableRow key={client.id}>
-                    <TableCell>
-                      <div className="flex items-start gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-blue-50 text-blue-950">
-                          <Building2 className="h-4 w-4" aria-hidden="true" />
-                        </div>
-                        <div>
-                          <p className="font-semibold text-slate-950">{client.companyName}</p>
-                          <p className="mt-1 max-w-80 text-sm text-slate-600">{client.address}</p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1 text-sm text-slate-700">
-                        <p className="font-medium text-slate-950">{client.contactPerson}</p>
-                        <p className="flex items-center gap-2">
-                          <Mail className="h-4 w-4 text-slate-500" aria-hidden="true" />
-                          {client.email}
-                        </p>
-                        {client.phone ? (
-                          <p className="flex items-center gap-2">
-                            <Phone className="h-4 w-4 text-slate-500" aria-hidden="true" />
-                            {client.phone}
-                          </p>
-                        ) : null}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <ClientStatusBadge status={client.status} />
-                    </TableCell>
-                    <TableCell>{client.taxIdentifier || 'None'}</TableCell>
-                    <TableCell>{formatDate(client.updatedAtUtc)}</TableCell>
-                    <TableCell>
-                      <div className="flex justify-end gap-2">
-                        {canEdit && client.status !== 'Archived' ? (
-                          <Button variant="outline" size="sm" onClick={() => setFormTarget(client)}>
-                            <Edit className="h-4 w-4" aria-hidden="true" />
-                            Edit
-                          </Button>
-                        ) : null}
-                        {canArchive && client.status !== 'Archived' ? (
-                          <Button variant="destructive" size="sm" onClick={() => setArchiveTarget(client)}>
-                            <Archive className="h-4 w-4" aria-hidden="true" />
-                            Archive
-                          </Button>
-                        ) : null}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </Card>
-      ) : null}
+      <DataTable
+        data={clientsQuery.data?.items ?? []}
+        columns={columns}
+        page={state.page}
+        pageSize={state.pageSize}
+        totalCount={clientsQuery.data?.totalCount ?? 0}
+        loading={clientsQuery.isLoading}
+        error={clientsQuery.isError}
+        emptyMessage="No clients found."
+        onPageChange={setPage}
+      />
 
       <ClientFormDialog
         target={formTarget}

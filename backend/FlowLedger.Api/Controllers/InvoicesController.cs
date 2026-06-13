@@ -1,5 +1,6 @@
 using FlowLedger.Api.Extensions;
 using FlowLedger.Application.Common;
+using FlowLedger.Application.Common.Csv;
 using FlowLedger.Application.Invoices;
 using FlowLedger.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
@@ -24,12 +25,42 @@ public sealed class InvoicesController : ControllerBase
         [FromQuery] InvoiceStatus? status,
         [FromQuery] Guid? customerId,
         [FromQuery] string? search,
+        [FromQuery] string? sortBy,
+        [FromQuery] string? sortDirection,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20,
+        [FromQuery] int pageSize = 25,
         CancellationToken cancellationToken = default)
     {
-        var query = new InvoiceQuery(status, customerId, search, page, pageSize);
-        return Ok(await _invoiceService.GetAsync(query, User.ToCurrentUser(), cancellationToken));
+        var query = new InvoiceQuery(status, customerId, search, sortBy, sortDirection, page, pageSize);
+        try
+        {
+            return Ok(await _invoiceService.GetAsync(query, User.ToCurrentUser(), cancellationToken));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpGet("export")]
+    public async Task<IActionResult> Export(
+        [FromQuery] InvoiceStatus? status,
+        [FromQuery] Guid? customerId,
+        [FromQuery] string? search,
+        [FromQuery] string? sortBy,
+        [FromQuery] string? sortDirection,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new InvoiceQuery(status, customerId, search, sortBy, sortDirection);
+        try
+        {
+            var csv = await _invoiceService.ExportCsvAsync(query, User.ToCurrentUser(), cancellationToken);
+            return File(csv.ToBytes(), CsvResult.ContentType, csv.FileName);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpGet("{id:guid}")]

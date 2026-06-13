@@ -6,6 +6,7 @@ import { RegisterPage } from './auth/RegisterPage'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { AuthProvider } from './auth/AuthContext'
 import { AppLayout } from './layout/AppLayout'
+import { AuditLogsPage } from './pages/AuditLogsPage'
 import { ClientsPage } from './pages/ClientsPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { EnrollmentRequestsPage } from './pages/EnrollmentRequestsPage'
@@ -48,6 +49,7 @@ const router = createBrowserRouter([
           { path: 'customers', element: <Navigate to="/app/clients" replace /> },
           { path: 'enrollment-requests', element: <EnrollmentRequestsPage /> },
           { path: 'users', element: <UsersPage /> },
+          { path: 'audit-logs', element: <AuditLogsPage /> },
           { path: 'settings', element: <SettingsPage /> },
         ],
       },

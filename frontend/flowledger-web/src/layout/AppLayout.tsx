@@ -1,4 +1,4 @@
-import { BarChart3, Building2, FileText, Inbox, LayoutDashboard, LogOut, ReceiptText, Settings, UserPlus, Users } from 'lucide-react'
+import { BarChart3, Building2, FileText, History, Inbox, LayoutDashboard, LogOut, ReceiptText, Settings, UserPlus, Users } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { Button } from '../components/ui/button'
 import { Separator } from '../components/ui/separator'
@@ -14,6 +14,7 @@ const navItems = [
   { to: '/app/clients', label: 'Clients', icon: Building2 },
   { to: '/app/enrollment-requests', label: 'Enrollment', icon: UserPlus, adminOnly: true },
   { to: '/app/users', label: 'Users', icon: Users, adminOnly: true },
+  { to: '/app/audit-logs', label: 'Audit Logs', icon: History },
   { to: '/app/settings', label: 'Settings', icon: Settings },
 ]
 
@@ -67,14 +68,14 @@ export function AppLayout() {
         </div>
       </aside>
 
-      <div className="lg:pl-64">
+      <div className="min-w-0 lg:pl-64">
         <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur lg:px-8">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="lg:hidden">
               <p className="text-lg font-bold text-slate-950">FlowLedger</p>
               <p className="text-xs text-slate-600">{user?.fullName}</p>
             </div>
-            <nav className="flex gap-2 overflow-x-auto lg:hidden" aria-label="Mobile navigation">
+            <nav className="flex w-full min-w-0 max-w-full gap-2 overflow-x-auto [contain:paint] lg:hidden" aria-label="Mobile navigation">
               {visibleNavItems.map((item) => (
                 <NavLink
                   key={item.to}
@@ -104,7 +105,7 @@ export function AppLayout() {
             </div>
           </div>
         </header>
-        <main className="px-4 py-6 lg:px-8">
+        <main className="min-w-0 px-4 py-6 lg:px-8">
           <Outlet />
         </main>
       </div>

@@ -1,8 +1,10 @@
 using FlowLedger.Application.Audit;
 using FlowLedger.Application.Common;
+using FlowLedger.Application.Common.Csv;
 using FlowLedger.Application.Invoices;
 using FlowLedger.Domain.Entities;
 using FlowLedger.Domain.Enums;
+using FlowLedger.Infrastructure.Common;
 using FlowLedger.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,48 +12,27 @@ namespace FlowLedger.Infrastructure.Invoices;
 
 public sealed class InvoiceService : IInvoiceService
 {
-    private const int MaxPageSize = 100;
+    private const int MaxExportRows = 5000;
 
     private readonly FlowLedgerDbContext _dbContext;
     private readonly IWorkflowAuditWriter _auditWriter;
+    private readonly ICsvExportService _csvExportService;
 
-    public InvoiceService(FlowLedgerDbContext dbContext, IWorkflowAuditWriter auditWriter)
+    public InvoiceService(FlowLedgerDbContext dbContext, IWorkflowAuditWriter auditWriter, ICsvExportService csvExportService)
     {
         _dbContext = dbContext;
         _auditWriter = auditWriter;
+        _csvExportService = csvExportService;
     }
 
     public async Task<PagedResult<InvoiceListItemDto>> GetAsync(InvoiceQuery query, CurrentUser currentUser, CancellationToken cancellationToken)
     {
-        var page = Math.Max(query.Page, 1);
-        var pageSize = Math.Clamp(query.PageSize, 1, MaxPageSize);
-        var invoices = ApplyVisibility(_dbContext.Invoices.AsNoTracking(), currentUser)
-            .Include(x => x.Customer)
-            .Include(x => x.BillingRequest)
-            .AsQueryable();
-
-        if (query.Status is not null)
-        {
-            invoices = invoices.Where(x => x.Status == query.Status);
-        }
-
-        if (query.CustomerId is not null)
-        {
-            invoices = invoices.Where(x => x.CustomerId == query.CustomerId);
-        }
-
-        if (!string.IsNullOrWhiteSpace(query.Search))
-        {
-            var search = query.Search.Trim();
-            invoices = invoices.Where(x =>
-                x.InvoiceNumber.Contains(search) ||
-                x.BillingRequest.RequestNumber.Contains(search) ||
-                x.Customer.Name.Contains(search));
-        }
+        var page = PagingQueryGuard.Page(query.Page);
+        var pageSize = PagingQueryGuard.PageSize(query.PageSize);
+        var invoices = BuildListQuery(query, currentUser);
 
         var totalCount = await invoices.CountAsync(cancellationToken);
-        var items = await invoices
-            .OrderByDescending(x => x.IssuedAtUtc)
+        var items = await ApplySort(invoices, query.SortBy, query.SortDirection)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(x => new InvoiceListItemDto(
@@ -67,6 +48,37 @@ public sealed class InvoiceService : IInvoiceService
             .ToListAsync(cancellationToken);
 
         return new PagedResult<InvoiceListItemDto>(items, page, pageSize, totalCount);
+    }
+
+    public async Task<CsvResult> ExportCsvAsync(InvoiceQuery query, CurrentUser currentUser, CancellationToken cancellationToken)
+    {
+        var rows = await ApplySort(BuildListQuery(query, currentUser), query.SortBy, query.SortDirection)
+            .Take(MaxExportRows)
+            .Select(x => new InvoiceListItemDto(
+                x.Id,
+                x.InvoiceNumber,
+                x.BillingRequest.RequestNumber,
+                x.Customer.Name,
+                x.Status,
+                x.TotalAmount,
+                x.IssuedAtUtc,
+                x.DueAtUtc,
+                x.PaidAtUtc))
+            .ToListAsync(cancellationToken);
+
+        return _csvExportService.Export(
+            $"invoices-{DateTime.UtcNow:yyyyMMddHHmmss}.csv",
+            rows,
+            [
+                new("Invoice Number", x => x.InvoiceNumber),
+                new("Billing Request Number", x => x.BillingRequestNumber),
+                new("Client", x => x.CustomerName),
+                new("Status", x => x.Status),
+                new("Amount", x => x.TotalAmount),
+                new("Issued At UTC", x => x.IssuedAtUtc),
+                new("Due At UTC", x => x.DueAtUtc),
+                new("Paid At UTC", x => x.PaidAtUtc)
+            ]);
     }
 
     public async Task<InvoiceDetailDto> GetByIdAsync(Guid id, CurrentUser currentUser, CancellationToken cancellationToken)
@@ -160,6 +172,52 @@ public sealed class InvoiceService : IInvoiceService
             RoleName.Accounts => query,
             RoleName.Manager => query,
             _ => query.Where(x => x.Id == Guid.Empty)
+        };
+    }
+
+    private IQueryable<Invoice> BuildListQuery(InvoiceQuery query, CurrentUser currentUser)
+    {
+        var invoices = ApplyVisibility(_dbContext.Invoices.AsNoTracking(), currentUser)
+            .Include(x => x.Customer)
+            .Include(x => x.BillingRequest)
+            .AsQueryable();
+
+        if (query.Status is not null)
+        {
+            invoices = invoices.Where(x => x.Status == query.Status);
+        }
+
+        if (query.CustomerId is not null)
+        {
+            invoices = invoices.Where(x => x.CustomerId == query.CustomerId);
+        }
+
+        var search = PagingQueryGuard.Search(query.Search);
+        if (search is not null)
+        {
+            invoices = invoices.Where(x =>
+                x.InvoiceNumber.Contains(search) ||
+                x.BillingRequest.RequestNumber.Contains(search) ||
+                x.Customer.Name.Contains(search));
+        }
+
+        return invoices;
+    }
+
+    private static IQueryable<Invoice> ApplySort(IQueryable<Invoice> query, string? sortBy, string? sortDirection)
+    {
+        var descending = PagingQueryGuard.Descending(sortDirection);
+        var sort = PagingQueryGuard.SortBy(sortBy, "issuedAtUtc", "issuedAtUtc", "createdAtUtc", "dueAtUtc", "paidAtUtc", "amount", "status", "clientName", "invoiceNumber");
+
+        return sort.ToLowerInvariant() switch
+        {
+            "invoicenumber" => descending ? query.OrderByDescending(x => x.InvoiceNumber) : query.OrderBy(x => x.InvoiceNumber),
+            "clientname" => descending ? query.OrderByDescending(x => x.Customer.Name) : query.OrderBy(x => x.Customer.Name),
+            "status" => descending ? query.OrderByDescending(x => x.Status) : query.OrderBy(x => x.Status),
+            "amount" => descending ? query.OrderByDescending(x => x.TotalAmount) : query.OrderBy(x => x.TotalAmount),
+            "dueatutc" => descending ? query.OrderByDescending(x => x.DueAtUtc) : query.OrderBy(x => x.DueAtUtc),
+            "paidatutc" => descending ? query.OrderByDescending(x => x.PaidAtUtc) : query.OrderBy(x => x.PaidAtUtc),
+            _ => descending ? query.OrderByDescending(x => x.IssuedAtUtc) : query.OrderBy(x => x.IssuedAtUtc)
         };
     }
 }

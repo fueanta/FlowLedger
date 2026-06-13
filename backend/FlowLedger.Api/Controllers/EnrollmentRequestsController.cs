@@ -46,7 +46,14 @@ public sealed class EnrollmentRequestsController : ControllerBase
         CancellationToken cancellationToken = default)
     {
         var query = new EnrollmentRequestQuery(page, pageSize, search, status, requestedRole, sortBy, sortDirection);
-        return Ok(await _enrollmentService.GetAsync(query, User.ToCurrentUser(), cancellationToken));
+        try
+        {
+            return Ok(await _enrollmentService.GetAsync(query, User.ToCurrentUser(), cancellationToken));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpGet("{id:guid}")]

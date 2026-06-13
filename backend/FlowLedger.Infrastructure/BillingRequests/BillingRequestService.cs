@@ -1,9 +1,11 @@
 using FlowLedger.Application.BillingRequests;
 using FlowLedger.Application.Audit;
 using FlowLedger.Application.Common;
+using FlowLedger.Application.Common.Csv;
 using FlowLedger.Application.Configuration;
 using FlowLedger.Domain.Entities;
 using FlowLedger.Domain.Enums;
+using FlowLedger.Infrastructure.Common;
 using FlowLedger.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,20 +13,23 @@ namespace FlowLedger.Infrastructure.BillingRequests;
 
 public sealed class BillingRequestService : IBillingRequestService
 {
-    private const int MaxPageSize = 100;
+    private const int MaxExportRows = 5000;
 
     private readonly FlowLedgerDbContext _dbContext;
     private readonly ISystemSettingsService _settingsService;
     private readonly IWorkflowAuditWriter _auditWriter;
+    private readonly ICsvExportService _csvExportService;
 
     public BillingRequestService(
         FlowLedgerDbContext dbContext,
         ISystemSettingsService settingsService,
-        IWorkflowAuditWriter auditWriter)
+        IWorkflowAuditWriter auditWriter,
+        ICsvExportService csvExportService)
     {
         _dbContext = dbContext;
         _settingsService = settingsService;
         _auditWriter = auditWriter;
+        _csvExportService = csvExportService;
     }
 
     public async Task<PagedResult<BillingRequestListItemDto>> GetAsync(
@@ -32,55 +37,9 @@ public sealed class BillingRequestService : IBillingRequestService
         CurrentUser currentUser,
         CancellationToken cancellationToken)
     {
-        var page = Math.Max(query.Page, 1);
-        var pageSize = Math.Clamp(query.PageSize, 1, MaxPageSize);
-        var requests = ApplyVisibility(_dbContext.BillingRequests.AsNoTracking(), currentUser)
-            .Include(x => x.Customer)
-            .AsQueryable();
-
-        if (query.Status is not null)
-        {
-            requests = requests.Where(x => x.Status == query.Status);
-        }
-
-        if (query.CustomerId is not null)
-        {
-            requests = requests.Where(x => x.CustomerId == query.CustomerId);
-        }
-
-        if (query.Queue is not null)
-        {
-            requests = requests.Where(x => x.AssignedQueue == query.Queue);
-        }
-
-        if (query.AssignedToMe)
-        {
-            requests = requests.Where(x => x.AssignedToUserId == currentUser.Id);
-        }
-
-        if (query.CreatedByMe)
-        {
-            requests = requests.Where(x => x.CreatedByUserId == currentUser.Id);
-        }
-
-        if (!string.IsNullOrWhiteSpace(query.Search))
-        {
-            var search = query.Search.Trim();
-            requests = requests.Where(x =>
-                x.RequestNumber.Contains(search) ||
-                x.Title.Contains(search) ||
-                x.Customer.Name.Contains(search));
-        }
-
-        if (query.FromDate is not null)
-        {
-            requests = requests.Where(x => x.CreatedAtUtc >= query.FromDate);
-        }
-
-        if (query.UntilDate is not null)
-        {
-            requests = requests.Where(x => x.CreatedAtUtc <= query.UntilDate);
-        }
+        var page = PagingQueryGuard.Page(query.Page);
+        var pageSize = PagingQueryGuard.PageSize(query.PageSize);
+        var requests = BuildListQuery(query, currentUser);
 
         var totalCount = await requests.CountAsync(cancellationToken);
         var items = await ApplySort(requests, query.SortBy, query.SortDirection)
@@ -101,6 +60,39 @@ public sealed class BillingRequestService : IBillingRequestService
             .ToListAsync(cancellationToken);
 
         return new PagedResult<BillingRequestListItemDto>(items, page, pageSize, totalCount);
+    }
+
+    public async Task<CsvResult> ExportCsvAsync(BillingRequestQuery query, CurrentUser currentUser, CancellationToken cancellationToken)
+    {
+        var rows = await ApplySort(BuildListQuery(query, currentUser), query.SortBy, query.SortDirection)
+            .Take(MaxExportRows)
+            .Select(x => new BillingRequestListItemDto(
+                x.Id,
+                x.RequestNumber,
+                x.Title,
+                x.Customer.Name,
+                x.Status,
+                x.AssignedQueue,
+                x.AssignedAtUtc,
+                x.LastWorkflowActionAtUtc,
+                x.TotalAmount,
+                x.CreatedAtUtc,
+                x.UpdatedAtUtc))
+            .ToListAsync(cancellationToken);
+
+        return _csvExportService.Export(
+            $"billing-requests-{DateTime.UtcNow:yyyyMMddHHmmss}.csv",
+            rows,
+            [
+                new("Request Number", x => x.RequestNumber),
+                new("Title", x => x.Title),
+                new("Client", x => x.CustomerName),
+                new("Status", x => x.Status),
+                new("Queue", x => x.AssignedQueue),
+                new("Amount", x => x.TotalAmount),
+                new("Created At UTC", x => x.CreatedAtUtc),
+                new("Updated At UTC", x => x.UpdatedAtUtc)
+            ]);
     }
 
     public async Task<BillingRequestDetailDto> GetByIdAsync(Guid id, CurrentUser currentUser, CancellationToken cancellationToken)
@@ -358,11 +350,67 @@ public sealed class BillingRequestService : IBillingRequestService
         };
     }
 
+    private IQueryable<BillingRequest> BuildListQuery(BillingRequestQuery query, CurrentUser currentUser)
+    {
+        var requests = ApplyVisibility(_dbContext.BillingRequests.AsNoTracking(), currentUser)
+            .Include(x => x.Customer)
+            .AsQueryable();
+
+        if (query.Status is not null)
+        {
+            requests = requests.Where(x => x.Status == query.Status);
+        }
+
+        if (query.CustomerId is not null)
+        {
+            requests = requests.Where(x => x.CustomerId == query.CustomerId);
+        }
+
+        if (query.Queue is not null)
+        {
+            requests = requests.Where(x => x.AssignedQueue == query.Queue);
+        }
+
+        if (query.AssignedToMe)
+        {
+            requests = requests.Where(x => x.AssignedToUserId == currentUser.Id);
+        }
+
+        if (query.CreatedByMe)
+        {
+            requests = requests.Where(x => x.CreatedByUserId == currentUser.Id);
+        }
+
+        var search = PagingQueryGuard.Search(query.Search);
+        if (search is not null)
+        {
+            requests = requests.Where(x =>
+                x.RequestNumber.Contains(search) ||
+                x.Title.Contains(search) ||
+                x.Customer.Name.Contains(search));
+        }
+
+        if (query.FromDate is not null)
+        {
+            requests = requests.Where(x => x.CreatedAtUtc >= query.FromDate);
+        }
+
+        if (query.UntilDate is not null)
+        {
+            requests = requests.Where(x => x.CreatedAtUtc <= query.UntilDate);
+        }
+
+        return requests;
+    }
+
     private static IQueryable<BillingRequest> ApplySort(IQueryable<BillingRequest> query, string? sortBy, string? sortDirection)
     {
-        var descending = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
-        return sortBy?.Trim().ToLowerInvariant() switch
+        var descending = PagingQueryGuard.Descending(sortDirection);
+        var sort = PagingQueryGuard.SortBy(sortBy, "createdAtUtc", "createdAtUtc", "updatedAtUtc", "amount", "status", "clientName", "requestNumber");
+
+        return sort.ToLowerInvariant() switch
         {
+            "requestnumber" => descending ? query.OrderByDescending(x => x.RequestNumber) : query.OrderBy(x => x.RequestNumber),
             "updatedatutc" => descending ? query.OrderByDescending(x => x.UpdatedAtUtc) : query.OrderBy(x => x.UpdatedAtUtc),
             "amount" => descending ? query.OrderByDescending(x => x.TotalAmount) : query.OrderBy(x => x.TotalAmount),
             "status" => descending ? query.OrderByDescending(x => x.Status) : query.OrderBy(x => x.Status),

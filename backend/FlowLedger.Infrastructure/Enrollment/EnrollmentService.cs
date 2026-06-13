@@ -4,6 +4,7 @@ using FlowLedger.Application.Auth;
 using FlowLedger.Domain.Entities;
 using FlowLedger.Domain.Enums;
 using FlowLedger.Infrastructure.Auth;
+using FlowLedger.Infrastructure.Common;
 using FlowLedger.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,8 +12,6 @@ namespace FlowLedger.Infrastructure.Enrollment;
 
 public sealed class EnrollmentService : IEnrollmentService
 {
-    private const int MaxPageSize = 100;
-
     private readonly FlowLedgerDbContext _dbContext;
     private readonly IPasswordHasher _passwordHasher;
 
@@ -58,8 +57,8 @@ public sealed class EnrollmentService : IEnrollmentService
     {
         EnsureAdmin(currentUser);
 
-        var page = Math.Max(query.Page, 1);
-        var pageSize = Math.Clamp(query.PageSize, 1, MaxPageSize);
+        var page = PagingQueryGuard.Page(query.Page);
+        var pageSize = PagingQueryGuard.PageSize(query.PageSize);
         var requests = _dbContext.EnrollmentRequests.AsNoTracking().Include(x => x.ReviewedByUser).AsQueryable();
 
         if (query.Status is not null)
@@ -72,9 +71,9 @@ public sealed class EnrollmentService : IEnrollmentService
             requests = requests.Where(x => x.RequestedRole == query.RequestedRole);
         }
 
-        if (!string.IsNullOrWhiteSpace(query.Search))
+        var search = PagingQueryGuard.Search(query.Search);
+        if (search is not null)
         {
-            var search = query.Search.Trim();
             requests = requests.Where(x => x.FullName.Contains(search) || x.Email.Contains(search));
         }
 
@@ -183,12 +182,16 @@ public sealed class EnrollmentService : IEnrollmentService
 
     private static IQueryable<EnrollmentRequest> ApplySort(IQueryable<EnrollmentRequest> query, string? sortBy, string? sortDirection)
     {
-        var descending = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
-        return sortBy?.Trim().ToLowerInvariant() switch
+        var descending = PagingQueryGuard.Descending(sortDirection);
+        var sort = PagingQueryGuard.SortBy(sortBy, "createdAtUtc", "createdAtUtc", "updatedAtUtc", "status", "email", "requestedRole", "fullName");
+
+        return sort.ToLowerInvariant() switch
         {
             "status" => descending ? query.OrderByDescending(x => x.Status) : query.OrderBy(x => x.Status),
             "email" => descending ? query.OrderByDescending(x => x.Email) : query.OrderBy(x => x.Email),
             "requestedrole" => descending ? query.OrderByDescending(x => x.RequestedRole) : query.OrderBy(x => x.RequestedRole),
+            "fullname" => descending ? query.OrderByDescending(x => x.FullName) : query.OrderBy(x => x.FullName),
+            "updatedatutc" => descending ? query.OrderByDescending(x => x.UpdatedAtUtc) : query.OrderBy(x => x.UpdatedAtUtc),
             _ => descending ? query.OrderByDescending(x => x.CreatedAtUtc) : query.OrderBy(x => x.CreatedAtUtc)
         };
     }

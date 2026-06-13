@@ -1,39 +1,49 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Eye, Search } from 'lucide-react'
-import { useDeferredValue, useState } from 'react'
+import type { ColumnDef } from '@tanstack/react-table'
+import { Eye } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { getCustomers } from '../api/customers'
-import { getInvoices, markInvoicePaid } from '../api/invoices'
+import { exportInvoices, getInvoices, markInvoicePaid } from '../api/invoices'
+import { useAuth } from '../auth/useAuth'
+import { DataTable } from '../components/data-table/DataTable'
+import { DataTableExportButton } from '../components/data-table/DataTableExportButton'
+import { DataTablePageSizeSelect } from '../components/data-table/DataTablePageSizeSelect'
+import { DataTableSearch } from '../components/data-table/DataTableSearch'
+import { DataTableSortableHeader } from '../components/data-table/DataTableSortableHeader'
+import { DataTableToolbar } from '../components/data-table/DataTableToolbar'
+import { useDataTableState } from '../components/data-table/dataTableState'
 import { PageHeader } from '../components/PageHeader'
-import { EmptyState, ErrorState, LoadingBlock } from '../components/StateViews'
 import { StatusBadge } from '../components/StatusBadge'
 import { Button } from '../components/ui/button'
-import { Card, CardContent } from '../components/ui/card'
-import { Input } from '../components/ui/input'
-import { Label } from '../components/ui/label'
 import { Select } from '../components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
-import { useAuth } from '../auth/useAuth'
 import { getApiErrorMessage } from '../lib/apiClient'
 import { formatDate, formatMoney } from '../lib/format'
 import { canMarkInvoicePaid } from '../lib/permissions'
-import type { InvoiceStatus } from '../types'
+import type { InvoiceListItem, InvoiceStatus } from '../types'
 
 const invoiceStatuses: (InvoiceStatus | '')[] = ['', 'Issued', 'Paid', 'Cancelled']
 
 export function InvoiceListPage() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
-  const [search, setSearch] = useState('')
-  const deferredSearch = useDeferredValue(search)
+  const { state, setPage, setSearch, setSort, setPageSize } = useDataTableState({ sortBy: 'issuedAtUtc', sortDirection: 'desc' })
   const [status, setStatus] = useState<InvoiceStatus | ''>('')
   const [customerId, setCustomerId] = useState('')
+  const listParams = { status, customerId, search: state.search, sortBy: state.sortBy, sortDirection: state.sortDirection }
+
   const invoicesQuery = useQuery({
-    queryKey: ['invoices', { status, customerId, search: deferredSearch }],
-    queryFn: () => getInvoices({ status, customerId, search: deferredSearch, pageSize: 50 }),
+    queryKey: ['invoices', { ...listParams, page: state.page, pageSize: state.pageSize }],
+    queryFn: () => getInvoices({ ...listParams, page: state.page, pageSize: state.pageSize }),
   })
   const customersQuery = useQuery({ queryKey: ['customers'], queryFn: getCustomers })
+
+  const exportMutation = useMutation({
+    mutationFn: () => exportInvoices(listParams),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Invoice export failed.')),
+  })
+
   const markPaidMutation = useMutation({
     mutationFn: markInvoicePaid,
     onSuccess: async () => {
@@ -44,100 +54,118 @@ export function InvoiceListPage() {
     },
     onError: (error) => toast.error(getApiErrorMessage(error, 'Invoice could not be marked as paid.')),
   })
-  const invoices = invoicesQuery.data?.items ?? []
+
+  const columns = useMemo<ColumnDef<InvoiceListItem>[]>(
+    () => [
+      {
+        accessorKey: 'invoiceNumber',
+        header: () => <DataTableSortableHeader label="Invoice No" column="invoiceNumber" sortBy={state.sortBy} sortDirection={state.sortDirection} onSort={setSort} />,
+        cell: ({ row }) => <span className="font-semibold text-slate-950">{row.original.invoiceNumber}</span>,
+      },
+      { accessorKey: 'billingRequestNumber', header: 'Request No' },
+      {
+        accessorKey: 'customerName',
+        header: () => <DataTableSortableHeader label="Client" column="clientName" sortBy={state.sortBy} sortDirection={state.sortDirection} onSort={setSort} />,
+      },
+      {
+        accessorKey: 'status',
+        header: () => <DataTableSortableHeader label="Status" column="status" sortBy={state.sortBy} sortDirection={state.sortDirection} onSort={setSort} />,
+        cell: ({ row }) => <StatusBadge status={row.original.status} />,
+      },
+      {
+        accessorKey: 'totalAmount',
+        header: () => <DataTableSortableHeader label="Amount" column="amount" sortBy={state.sortBy} sortDirection={state.sortDirection} onSort={setSort} />,
+        cell: ({ row }) => formatMoney(row.original.totalAmount),
+      },
+      {
+        accessorKey: 'issuedAtUtc',
+        header: () => <DataTableSortableHeader label="Issued" column="issuedAtUtc" sortBy={state.sortBy} sortDirection={state.sortDirection} onSort={setSort} />,
+        cell: ({ row }) => formatDate(row.original.issuedAtUtc),
+      },
+      {
+        accessorKey: 'dueAtUtc',
+        header: () => <DataTableSortableHeader label="Due" column="dueAtUtc" sortBy={state.sortBy} sortDirection={state.sortDirection} onSort={setSort} />,
+        cell: ({ row }) => formatDate(row.original.dueAtUtc),
+      },
+      {
+        id: 'actions',
+        header: () => <span className="sr-only">Actions</span>,
+        cell: ({ row }) => (
+          <div className="flex justify-end gap-2">
+            <Button asChild variant="outline" size="sm">
+              <Link to={`/app/invoices/${row.original.id}`}>
+                <Eye className="h-4 w-4" aria-hidden="true" />
+                View
+              </Link>
+            </Button>
+            {user && canMarkInvoicePaid(user.role, row.original.status) ? (
+              <Button size="sm" onClick={() => markPaidMutation.mutate(row.original.id)} disabled={markPaidMutation.isPending}>
+                Mark Paid
+              </Button>
+            ) : null}
+          </div>
+        ),
+      },
+    ],
+    [markPaidMutation, setSort, state.sortBy, state.sortDirection, user],
+  )
 
   return (
     <>
       <PageHeader title="Invoices" description="Review issued and paid invoices generated by approved billing requests." />
 
-      <Card className="mb-4">
-        <CardContent className="grid gap-4 p-4 md:grid-cols-3">
-          <div className="space-y-2">
-            <Label htmlFor="invoice-search">Search</Label>
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-slate-500" aria-hidden="true" />
-              <Input id="invoice-search" className="pl-9" value={search} onChange={(event) => setSearch(event.target.value)} />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="invoice-status">Status</Label>
-            <Select id="invoice-status" value={status} onChange={(event) => setStatus(event.target.value as InvoiceStatus | '')}>
-              {invoiceStatuses.map((item) => (
-                <option key={item || 'all'} value={item}>
-                  {item || 'All statuses'}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="invoice-customer">Client</Label>
-            <Select id="invoice-customer" value={customerId} onChange={(event) => setCustomerId(event.target.value)}>
-              <option value="">All active clients</option>
-              {customersQuery.data?.map((customer) => (
-                <option key={customer.id} value={customer.id}>
-                  {customer.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      <DataTableToolbar actions={<DataTableExportButton onExport={() => exportMutation.mutate()} disabled={exportMutation.isPending} />}>
+        <DataTableSearch value={state.search} onChange={setSearch} />
+        <FilterSelect
+          label="Status"
+          value={status}
+          onChange={(value) => {
+            setStatus(value as InvoiceStatus | '')
+            setPage(1)
+          }}
+          options={invoiceStatuses.map((item) => ({ value: item, label: item || 'All statuses' }))}
+        />
+        <FilterSelect
+          label="Client"
+          value={customerId}
+          onChange={(value) => {
+            setCustomerId(value)
+            setPage(1)
+          }}
+          options={[{ value: '', label: 'All active clients' }, ...(customersQuery.data ?? []).map((customer) => ({ value: customer.id, label: customer.name }))]}
+        />
+        <DataTablePageSizeSelect value={state.pageSize} onChange={setPageSize} />
+      </DataTableToolbar>
 
-      {invoicesQuery.isLoading ? <LoadingBlock /> : null}
-      {invoicesQuery.isError ? <ErrorState message="Invoices could not be loaded." onRetry={() => void invoicesQuery.refetch()} /> : null}
-      {!invoicesQuery.isLoading && !invoicesQuery.isError && invoices.length === 0 ? (
-        <EmptyState title="No invoices found" message="Approved requests will generate invoices here." />
-      ) : null}
-      {invoices.length > 0 ? (
-        <Card>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Invoice No</TableHead>
-                  <TableHead>Request No</TableHead>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Issued</TableHead>
-                  <TableHead>Due</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {invoices.map((invoice) => (
-                  <TableRow key={invoice.id}>
-                    <TableCell className="font-semibold text-slate-950">{invoice.invoiceNumber}</TableCell>
-                    <TableCell>{invoice.billingRequestNumber}</TableCell>
-                    <TableCell>{invoice.customerName}</TableCell>
-                    <TableCell>
-                      <StatusBadge status={invoice.status} />
-                    </TableCell>
-                    <TableCell>{formatMoney(invoice.totalAmount)}</TableCell>
-                    <TableCell>{formatDate(invoice.issuedAtUtc)}</TableCell>
-                    <TableCell>{formatDate(invoice.dueAtUtc)}</TableCell>
-                    <TableCell>
-                      <div className="flex justify-end gap-2">
-                        <Button asChild variant="outline" size="sm">
-                          <Link to={`/app/invoices/${invoice.id}`}>
-                            <Eye className="h-4 w-4" aria-hidden="true" />
-                            View
-                          </Link>
-                        </Button>
-                        {user && canMarkInvoicePaid(user.role, invoice.status) ? (
-                          <Button size="sm" onClick={() => markPaidMutation.mutate(invoice.id)} disabled={markPaidMutation.isPending}>
-                            Mark Paid
-                          </Button>
-                        ) : null}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </Card>
-      ) : null}
+      <DataTable
+        data={invoicesQuery.data?.items ?? []}
+        columns={columns}
+        page={state.page}
+        pageSize={state.pageSize}
+        totalCount={invoicesQuery.data?.totalCount ?? 0}
+        loading={invoicesQuery.isLoading}
+        error={invoicesQuery.isError}
+        emptyMessage="No invoices found."
+        onPageChange={setPage}
+      />
     </>
+  )
+}
+
+function FilterSelect({ label, value, options, onChange }: { label: string; value: string; options: { value: string; label: string }[]; onChange: (value: string) => void }) {
+  const id = `invoice-${label.toLowerCase().replace(/\s+/g, '-')}`
+  return (
+    <div className="space-y-2">
+      <label className="text-sm font-medium text-slate-900" htmlFor={id}>
+        {label}
+      </label>
+      <Select id={id} value={value} onChange={(event) => onChange(event.target.value)}>
+        {options.map((option) => (
+          <option key={option.value || 'all'} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </Select>
+    </div>
   )
 }

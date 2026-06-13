@@ -4,6 +4,7 @@ using FlowLedger.Application.Users;
 using FlowLedger.Domain.Entities;
 using FlowLedger.Domain.Enums;
 using FlowLedger.Infrastructure.Auth;
+using FlowLedger.Infrastructure.Common;
 using FlowLedger.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,8 +12,6 @@ namespace FlowLedger.Infrastructure.Users;
 
 public sealed class UserAdminService : IUserAdminService
 {
-    private const int MaxPageSize = 100;
-
     private readonly FlowLedgerDbContext _dbContext;
 
     public UserAdminService(FlowLedgerDbContext dbContext)
@@ -24,8 +23,8 @@ public sealed class UserAdminService : IUserAdminService
     {
         EnsureAdmin(currentUser);
 
-        var page = Math.Max(query.Page, 1);
-        var pageSize = Math.Clamp(query.PageSize, 1, MaxPageSize);
+        var page = PagingQueryGuard.Page(query.Page);
+        var pageSize = PagingQueryGuard.PageSize(query.PageSize);
         var users = _dbContext.Users.AsNoTracking().AsQueryable();
 
         if (query.Role is not null)
@@ -38,9 +37,9 @@ public sealed class UserAdminService : IUserAdminService
             users = users.Where(x => x.Status == query.Status);
         }
 
-        if (!string.IsNullOrWhiteSpace(query.Search))
+        var search = PagingQueryGuard.Search(query.Search);
+        if (search is not null)
         {
-            var search = query.Search.Trim();
             users = users.Where(x => x.FullName.Contains(search) || x.Email.Contains(search));
         }
 
@@ -150,13 +149,16 @@ public sealed class UserAdminService : IUserAdminService
 
     private static IQueryable<User> ApplySort(IQueryable<User> query, string? sortBy, string? sortDirection)
     {
-        var descending = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
-        return sortBy?.Trim().ToLowerInvariant() switch
+        var descending = PagingQueryGuard.Descending(sortDirection);
+        var sort = PagingQueryGuard.SortBy(sortBy, "fullName", "fullName", "email", "role", "status", "updatedAtUtc", "createdAtUtc");
+
+        return sort.ToLowerInvariant() switch
         {
             "email" => descending ? query.OrderByDescending(x => x.Email) : query.OrderBy(x => x.Email),
             "role" => descending ? query.OrderByDescending(x => x.Role) : query.OrderBy(x => x.Role),
             "status" => descending ? query.OrderByDescending(x => x.Status) : query.OrderBy(x => x.Status),
             "updatedatutc" => descending ? query.OrderByDescending(x => x.UpdatedAtUtc) : query.OrderBy(x => x.UpdatedAtUtc),
+            "createdatutc" => descending ? query.OrderByDescending(x => x.CreatedAtUtc) : query.OrderBy(x => x.CreatedAtUtc),
             _ => descending ? query.OrderByDescending(x => x.FullName) : query.OrderBy(x => x.FullName)
         };
     }

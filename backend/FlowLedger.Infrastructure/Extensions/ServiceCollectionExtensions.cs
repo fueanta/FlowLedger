@@ -2,6 +2,7 @@ using FlowLedger.Application.Auth;
 using FlowLedger.Application.Audit;
 using FlowLedger.Application.BillingRequests;
 using FlowLedger.Application.Common;
+using FlowLedger.Application.Common.Csv;
 using FlowLedger.Application.Configuration;
 using FlowLedger.Application.Customers;
 using FlowLedger.Application.Dashboard;
@@ -14,6 +15,7 @@ using FlowLedger.Infrastructure.Audit;
 using FlowLedger.Infrastructure.Auth;
 using FlowLedger.Infrastructure.BillingRequests;
 using FlowLedger.Infrastructure.Configuration;
+using FlowLedger.Infrastructure.Common;
 using FlowLedger.Infrastructure.Customers;
 using FlowLedger.Infrastructure.Dashboard;
 using FlowLedger.Infrastructure.Enrollment;
@@ -41,6 +43,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICustomerService, CustomerService>();
         services.AddScoped<IInvoiceService, InvoiceService>();
         services.AddScoped<IDashboardService, DashboardService>();
+        services.AddScoped<IAuditLogService, AuditLogService>();
         services.AddScoped<IEnrollmentService, EnrollmentService>();
         services.AddScoped<IUserAdminService, UserAdminService>();
         services.AddScoped<IUserPreferenceService, UserPreferenceService>();
@@ -49,6 +52,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAppSettingReader, AppSettingReader>();
         services.AddScoped<ISystemSettingsService, SystemSettingsService>();
         services.AddScoped<IWorkflowAuditWriter, WorkflowAuditWriter>();
+        services.AddScoped<ICsvExportService, CsvExportService>();
         services.AddScoped<SeedUserPasswordBootstrapper>();
         services.AddScoped<DemoSeedDataRefresher>();
 

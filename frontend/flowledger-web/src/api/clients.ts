@@ -1,4 +1,5 @@
 import { apiClient } from '../lib/apiClient'
+import { downloadCsvBlob } from '../lib/downloadCsv'
 import type { Client, ClientStatus, PagedResult } from '../types'
 
 type ClientDto = {
@@ -49,6 +50,17 @@ export async function getClients(params: ClientListParams = {}) {
     ...response.data,
     items: response.data.items.map(toClient),
   }
+}
+
+export async function exportClients(params: Omit<ClientListParams, 'page' | 'pageSize'> = {}) {
+  const response = await apiClient.get<Blob>('/clients/export', {
+    params: {
+      ...params,
+      status: params.status || undefined,
+    },
+    responseType: 'blob',
+  })
+  downloadCsvBlob(response.data, 'clients.csv', response.headers['content-disposition'])
 }
 
 export async function getActiveClients() {

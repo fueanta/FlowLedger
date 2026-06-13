@@ -1,21 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Search, XCircle } from 'lucide-react'
-import { useDeferredValue, useState } from 'react'
+import type { ColumnDef } from '@tanstack/react-table'
+import { CheckCircle2, XCircle } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { activateUser, deactivateUser, getUsers, updateUserRole } from '../api/users'
+import { useAuth } from '../auth/useAuth'
+import { DataTable } from '../components/data-table/DataTable'
+import { DataTablePageSizeSelect } from '../components/data-table/DataTablePageSizeSelect'
+import { DataTableSearch } from '../components/data-table/DataTableSearch'
+import { DataTableSortableHeader } from '../components/data-table/DataTableSortableHeader'
+import { DataTableToolbar } from '../components/data-table/DataTableToolbar'
+import { useDataTableState } from '../components/data-table/dataTableState'
 import { PageHeader } from '../components/PageHeader'
-import { EmptyState, ErrorState, LoadingBlock } from '../components/StateViews'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
-import { Card, CardContent } from '../components/ui/card'
-import { Input } from '../components/ui/input'
-import { Label } from '../components/ui/label'
 import { Select } from '../components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
-import { useAuth } from '../auth/useAuth'
 import { getApiErrorMessage } from '../lib/apiClient'
 import { formatDate } from '../lib/format'
-import type { Role, UserStatus } from '../types'
+import type { Role, User, UserStatus } from '../types'
 
 const roles: (Role | '')[] = ['', 'Sales', 'Accounts', 'Manager', 'Admin']
 const statuses: (UserStatus | '')[] = ['', 'Active', 'Inactive']
@@ -23,13 +25,14 @@ const statuses: (UserStatus | '')[] = ['', 'Active', 'Inactive']
 export function UsersPage() {
   const { user: currentUser } = useAuth()
   const queryClient = useQueryClient()
-  const [search, setSearch] = useState('')
-  const deferredSearch = useDeferredValue(search)
+  const { state, setPage, setSearch, setSort, setPageSize } = useDataTableState({ sortBy: 'fullName', sortDirection: 'asc' })
   const [role, setRole] = useState<Role | ''>('')
   const [status, setStatus] = useState<UserStatus | ''>('')
+  const listParams = { search: state.search, role, status, sortBy: state.sortBy, sortDirection: state.sortDirection }
+
   const usersQuery = useQuery({
-    queryKey: ['users', { search: deferredSearch, role, status }],
-    queryFn: () => getUsers({ search: deferredSearch, role, status, pageSize: 100 }),
+    queryKey: ['users', { ...listParams, page: state.page, pageSize: state.pageSize }],
+    queryFn: () => getUsers({ ...listParams, page: state.page, pageSize: state.pageSize }),
   })
 
   const roleMutation = useMutation({
@@ -50,112 +53,129 @@ export function UsersPage() {
     onError: (error) => toast.error(getApiErrorMessage(error, 'User status could not be updated.')),
   })
 
-  const rows = usersQuery.data?.items ?? []
+  const columns = useMemo<ColumnDef<User>[]>(
+    () => [
+      {
+        accessorKey: 'fullName',
+        header: () => <DataTableSortableHeader label="Name" column="fullName" sortBy={state.sortBy} sortDirection={state.sortDirection} onSort={setSort} />,
+        cell: ({ row }) => <span className="font-semibold text-slate-950">{row.original.fullName}</span>,
+      },
+      {
+        accessorKey: 'email',
+        header: () => <DataTableSortableHeader label="Email" column="email" sortBy={state.sortBy} sortDirection={state.sortDirection} onSort={setSort} />,
+      },
+      {
+        accessorKey: 'role',
+        header: () => <DataTableSortableHeader label="Role" column="role" sortBy={state.sortBy} sortDirection={state.sortDirection} onSort={setSort} />,
+        cell: ({ row }) => (
+          <Select
+            value={row.original.role}
+            disabled={roleMutation.isPending}
+            onChange={(event) => roleMutation.mutate({ id: row.original.id, nextRole: event.target.value as Role })}
+            aria-label={`Change role for ${row.original.fullName}`}
+          >
+            <option value="Sales">Sales</option>
+            <option value="Accounts">Accounts</option>
+            <option value="Manager">Manager</option>
+            <option value="Admin">Admin</option>
+          </Select>
+        ),
+      },
+      {
+        accessorKey: 'status',
+        header: () => <DataTableSortableHeader label="Status" column="status" sortBy={state.sortBy} sortDirection={state.sortDirection} onSort={setSort} />,
+        cell: ({ row }) => <UserStatusBadge status={row.original.status} />,
+      },
+      {
+        accessorKey: 'lastLoginAtUtc',
+        header: 'Last Login',
+        cell: ({ row }) => formatDate(row.original.lastLoginAtUtc),
+      },
+      {
+        id: 'actions',
+        header: () => <span className="sr-only">Actions</span>,
+        cell: ({ row }) => (
+          <div className="flex justify-end gap-2">
+            {row.original.status === 'Active' ? (
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={row.original.id === currentUser?.id || statusMutation.isPending}
+                onClick={() => statusMutation.mutate({ id: row.original.id, nextStatus: 'Inactive' })}
+              >
+                <XCircle className="h-4 w-4" aria-hidden="true" />
+                Deactivate
+              </Button>
+            ) : (
+              <Button size="sm" disabled={statusMutation.isPending} onClick={() => statusMutation.mutate({ id: row.original.id, nextStatus: 'Active' })}>
+                <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                Activate
+              </Button>
+            )}
+          </div>
+        ),
+      },
+    ],
+    [currentUser?.id, roleMutation, setSort, state.sortBy, state.sortDirection, statusMutation],
+  )
 
   return (
     <>
       <PageHeader title="Users" description="Admin user directory with role and activation controls." />
-      <Card className="mb-4">
-        <CardContent className="grid gap-4 p-4 md:grid-cols-3">
-          <div className="space-y-2">
-            <Label htmlFor="user-search">Search</Label>
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-slate-500" aria-hidden="true" />
-              <Input id="user-search" className="pl-9" value={search} onChange={(event) => setSearch(event.target.value)} />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="user-role">Role</Label>
-            <Select id="user-role" value={role} onChange={(event) => setRole(event.target.value as Role | '')}>
-              {roles.map((item) => (
-                <option key={item || 'all'} value={item}>
-                  {item || 'All roles'}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="user-status">Status</Label>
-            <Select id="user-status" value={status} onChange={(event) => setStatus(event.target.value as UserStatus | '')}>
-              {statuses.map((item) => (
-                <option key={item || 'all'} value={item}>
-                  {item || 'All statuses'}
-                </option>
-              ))}
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
 
-      {usersQuery.isLoading ? <LoadingBlock /> : null}
-      {usersQuery.isError ? <ErrorState message="Users could not be loaded." onRetry={() => void usersQuery.refetch()} /> : null}
-      {!usersQuery.isLoading && !usersQuery.isError && rows.length === 0 ? (
-        <EmptyState title="No users found" message="Approved enrollment requests create active users." />
-      ) : null}
-      {rows.length > 0 ? (
-        <Card>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Last Login</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-semibold text-slate-950">{user.fullName}</TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>
-                      <Select
-                        value={user.role}
-                        disabled={roleMutation.isPending}
-                        onChange={(event) => roleMutation.mutate({ id: user.id, nextRole: event.target.value as Role })}
-                        aria-label={`Change role for ${user.fullName}`}
-                      >
-                        <option value="Sales">Sales</option>
-                        <option value="Accounts">Accounts</option>
-                        <option value="Manager">Manager</option>
-                        <option value="Admin">Admin</option>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <UserStatusBadge status={user.status} />
-                    </TableCell>
-                    <TableCell>{formatDate(user.lastLoginAtUtc)}</TableCell>
-                    <TableCell>
-                      <div className="flex justify-end gap-2">
-                        {user.status === 'Active' ? (
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            disabled={user.id === currentUser?.id || statusMutation.isPending}
-                            onClick={() => statusMutation.mutate({ id: user.id, nextStatus: 'Inactive' })}
-                          >
-                            <XCircle className="h-4 w-4" aria-hidden="true" />
-                            Deactivate
-                          </Button>
-                        ) : (
-                          <Button size="sm" disabled={statusMutation.isPending} onClick={() => statusMutation.mutate({ id: user.id, nextStatus: 'Active' })}>
-                            <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                            Activate
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </Card>
-      ) : null}
+      <DataTableToolbar>
+        <DataTableSearch value={state.search} onChange={setSearch} />
+        <FilterSelect
+          label="Role"
+          value={role}
+          onChange={(value) => {
+            setRole(value as Role | '')
+            setPage(1)
+          }}
+          options={roles.map((item) => ({ value: item, label: item || 'All roles' }))}
+        />
+        <FilterSelect
+          label="Status"
+          value={status}
+          onChange={(value) => {
+            setStatus(value as UserStatus | '')
+            setPage(1)
+          }}
+          options={statuses.map((item) => ({ value: item, label: item || 'All statuses' }))}
+        />
+        <DataTablePageSizeSelect value={state.pageSize} onChange={setPageSize} />
+      </DataTableToolbar>
+
+      <DataTable
+        data={usersQuery.data?.items ?? []}
+        columns={columns}
+        page={state.page}
+        pageSize={state.pageSize}
+        totalCount={usersQuery.data?.totalCount ?? 0}
+        loading={usersQuery.isLoading}
+        error={usersQuery.isError}
+        emptyMessage="No users found."
+        onPageChange={setPage}
+      />
     </>
+  )
+}
+
+function FilterSelect({ label, value, options, onChange }: { label: string; value: string; options: { value: string; label: string }[]; onChange: (value: string) => void }) {
+  const id = `user-${label.toLowerCase().replace(/\s+/g, '-')}`
+  return (
+    <div className="space-y-2">
+      <label className="text-sm font-medium text-slate-900" htmlFor={id}>
+        {label}
+      </label>
+      <Select id={id} value={value} onChange={(event) => onChange(event.target.value)}>
+        {options.map((option) => (
+          <option key={option.value || 'all'} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </Select>
+    </div>
   )
 }
 

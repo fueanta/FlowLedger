@@ -1,7 +1,9 @@
 using FlowLedger.Application.Common;
+using FlowLedger.Application.Common.Csv;
 using FlowLedger.Application.Customers;
 using FlowLedger.Domain.Entities;
 using FlowLedger.Domain.Enums;
+using FlowLedger.Infrastructure.Common;
 using FlowLedger.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,13 +11,15 @@ namespace FlowLedger.Infrastructure.Customers;
 
 public sealed class CustomerService : ICustomerService
 {
-    private const int MaxPageSize = 100;
+    private const int MaxExportRows = 5000;
 
     private readonly FlowLedgerDbContext _dbContext;
+    private readonly ICsvExportService _csvExportService;
 
-    public CustomerService(FlowLedgerDbContext dbContext)
+    public CustomerService(FlowLedgerDbContext dbContext, ICsvExportService csvExportService)
     {
         _dbContext = dbContext;
+        _csvExportService = csvExportService;
     }
 
     public async Task<IReadOnlyList<CustomerDto>> GetAsync(CancellationToken cancellationToken)
@@ -32,25 +36,9 @@ public sealed class CustomerService : ICustomerService
     {
         EnsureCanView(currentUser);
 
-        var page = Math.Max(query.Page, 1);
-        var pageSize = Math.Clamp(query.PageSize, 1, MaxPageSize);
-        var clients = _dbContext.Customers.AsNoTracking().AsQueryable();
-
-        if (query.Status is not null)
-        {
-            clients = clients.Where(x => x.Status == query.Status);
-        }
-
-        if (!string.IsNullOrWhiteSpace(query.Search))
-        {
-            var search = query.Search.Trim();
-            clients = clients.Where(x =>
-                x.Name.Contains(search) ||
-                x.ContactEmail.Contains(search) ||
-                x.ContactPerson.Contains(search));
-        }
-
-        clients = ApplySort(clients, query.SortBy, query.SortDirection);
+        var page = PagingQueryGuard.Page(query.Page);
+        var pageSize = PagingQueryGuard.PageSize(query.PageSize);
+        var clients = ApplySort(BuildListQuery(query), query.SortBy, query.SortDirection);
 
         var totalCount = await clients.CountAsync(cancellationToken);
         var items = await clients
@@ -60,6 +48,31 @@ public sealed class CustomerService : ICustomerService
             .ToListAsync(cancellationToken);
 
         return new PagedResult<CustomerDto>(items, page, pageSize, totalCount);
+    }
+
+    public async Task<CsvResult> ExportCsvAsync(ClientQuery query, CurrentUser currentUser, CancellationToken cancellationToken)
+    {
+        EnsureCanView(currentUser);
+
+        var rows = await ApplySort(BuildListQuery(query), query.SortBy, query.SortDirection)
+            .Take(MaxExportRows)
+            .Select(x => ToDto(x))
+            .ToListAsync(cancellationToken);
+
+        return _csvExportService.Export(
+            $"clients-{DateTime.UtcNow:yyyyMMddHHmmss}.csv",
+            rows,
+            [
+                new("Company Name", x => x.Name),
+                new("Contact Person", x => x.ContactPerson),
+                new("Email", x => x.ContactEmail),
+                new("Phone", x => x.Phone),
+                new("Status", x => x.Status),
+                new("Tax Identifier", x => x.TaxIdentifier),
+                new("Created At UTC", x => x.CreatedAtUtc),
+                new("Updated At UTC", x => x.UpdatedAtUtc),
+                new("Archived At UTC", x => x.ArchivedAtUtc)
+            ]);
     }
 
     public async Task<CustomerDto> GetByIdAsync(Guid id, CurrentUser currentUser, CancellationToken cancellationToken)
@@ -169,8 +182,8 @@ public sealed class CustomerService : ICustomerService
 
     private static IQueryable<Customer> ApplySort(IQueryable<Customer> query, string? sortBy, string? sortDirection)
     {
-        var descending = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
-        var key = sortBy?.Trim().ToLowerInvariant();
+        var descending = PagingQueryGuard.Descending(sortDirection);
+        var key = PagingQueryGuard.SortBy(sortBy, "companyName", "companyName", "status", "createdAtUtc", "updatedAtUtc").ToLowerInvariant();
 
         return key switch
         {
@@ -179,6 +192,27 @@ public sealed class CustomerService : ICustomerService
             "updatedatutc" => descending ? query.OrderByDescending(x => x.UpdatedAtUtc) : query.OrderBy(x => x.UpdatedAtUtc),
             _ => descending ? query.OrderByDescending(x => x.Name) : query.OrderBy(x => x.Name)
         };
+    }
+
+    private IQueryable<Customer> BuildListQuery(ClientQuery query)
+    {
+        var clients = _dbContext.Customers.AsNoTracking().AsQueryable();
+
+        if (query.Status is not null)
+        {
+            clients = clients.Where(x => x.Status == query.Status);
+        }
+
+        var search = PagingQueryGuard.Search(query.Search);
+        if (search is not null)
+        {
+            clients = clients.Where(x =>
+                x.Name.Contains(search) ||
+                x.ContactEmail.Contains(search) ||
+                x.ContactPerson.Contains(search));
+        }
+
+        return clients;
     }
 
     private static CustomerDto ToDto(Customer client)

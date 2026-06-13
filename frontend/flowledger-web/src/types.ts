@@ -163,6 +163,19 @@ export type AuditLog = {
   createdAtUtc: string
 }
 
+export type AuditLogListItem = {
+  id: string
+  entityType: string
+  entityId: string
+  entityNumber: string | null
+  actorDisplayName: string
+  actionType: string
+  message: string
+  beforeStatus: string | null
+  afterStatus: string | null
+  createdAtUtc: string
+}
+
 export type BillingRequestInvoice = {
   id: string
   invoiceNumber: string

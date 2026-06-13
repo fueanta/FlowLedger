@@ -462,3 +462,88 @@ Read from the bottom first. Newest phase status, verification notes, and blocker
 
 - Phase 5 is signed off.
 - Conventional Commit message when commit is requested: `feat: add preferences and data table foundation`
+
+## Phase 6: Apply Data Tables and CSV Export
+
+### Built
+
+- Added shared CSV export contracts and implementation:
+  - `CsvColumn<T>`
+  - `CsvResult`
+  - `ICsvExportService`
+  - `CsvExportService`
+- Added strict server-side paging/query validation:
+  - Page must be `>= 1`.
+  - Page size must be one of `10`, `25`, `50`, or `100`.
+  - Search is trimmed and capped at 200 characters.
+  - Sort direction must be `asc` or `desc`.
+  - Unsupported sort columns return `400 Bad Request`.
+- Added required CSV export endpoints:
+  - `GET /api/billing-requests/export`
+  - `GET /api/invoices/export`
+  - `GET /api/clients/export`
+- CSV exports respect active filters, role visibility, and sort where applicable.
+- CSV exports omit security-sensitive fields such as password hashes and salts.
+- Added `GET /api/audit-logs` for table-backed audit review ahead of Phase 7 temporal-table work.
+- Added audit-log list DTO/query/service/controller.
+- Added sort support to invoice list APIs.
+- Migrated these pages to the shared reusable TanStack-backed data table:
+  - Billing Requests
+  - Invoices
+  - Clients
+  - Users
+  - Enrollment Requests
+  - Audit Logs
+- Added URL-backed table state for page, page size, search, sort column, and sort direction.
+- Added page-size persistence through user preferences when preferences are available.
+- Added CSV export buttons for Billing Requests, Invoices, and Clients.
+- Added mobile overflow containment so wide tables scroll internally without creating page-level horizontal scroll.
+
+### Verification
+
+- Passed: backend build through Docker SDK container.
+  - Command: `docker run --rm -v "$PWD:/src" -w /src/backend mcr.microsoft.com/dotnet/sdk:8.0-alpine sh -lc 'dotnet build FlowLedger.sln'`
+  - Result: build succeeded with 0 warnings and 0 errors.
+- Passed: full backend test suite through Docker SDK container with Docker socket and host override for Testcontainers.
+  - Command: `docker run --rm -e TESTCONTAINERS_RYUK_DISABLED=true -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -v "$PWD:/src" -v /Users/mutasim/.docker/run/docker.sock:/var/run/docker.sock -w /src/backend mcr.microsoft.com/dotnet/sdk:8.0-alpine sh -lc 'dotnet test FlowLedger.sln'`
+  - Result: 85 tests passed, 0 failed.
+- Passed: frontend tests.
+  - Command: `cd frontend/flowledger-web && npm test -- --run`
+  - Result: 23 tests passed, 0 failed.
+- Passed: frontend lint.
+  - Command: `cd frontend/flowledger-web && npm run lint`
+  - Result: ESLint passed.
+- Passed: frontend production build.
+  - Command: `cd frontend/flowledger-web && npm run build`
+  - Result: TypeScript and Vite production build succeeded.
+  - Note: existing Vite chunk-size warning remains.
+- Passed: Docker Compose runtime smoke.
+  - Command: `docker compose up --build -d`
+  - Result: SQL Server became healthy, API started, frontend started.
+  - API smoke:
+    - Billing Requests, Invoices, Clients, Users, Enrollment Requests, and Audit Logs list APIs returned `200`.
+    - Billing Requests, Invoices, and Clients CSV exports returned CSV content.
+  - Frontend route smoke:
+    - `/app/requests` returned `200`.
+    - `/app/invoices` returned `200`.
+    - `/app/clients` returned `200`.
+    - `/app/users` returned `200`.
+    - `/app/enrollment-requests` returned `200`.
+    - `/app/audit-logs` returned `200`.
+  - Smoke output: `phase6 final api/web smoke ok`.
+- Passed: Chromium table-control smoke through temporary Playwright Docker container.
+  - Command: `docker run -i --rm -e ADMIN_PASSWORD="$SeedUsers__AdminPassword" mcr.microsoft.com/playwright:v1.57.0-noble ...`
+  - Result:
+    - `viewport 375 table controls ok`
+    - `viewport 768 table controls ok`
+    - `viewport 1024 table controls ok`
+    - `viewport 1440 table controls ok`
+  - Coverage: page-size selector, sortable headers, page-number navigation, previous/next where available, search, nonblank table rendering, and no page-level horizontal scroll on all migrated list pages.
+  - Cleanup: `docker compose down -v --remove-orphans`.
+
+### Notes
+
+- Phase 6 is signed off.
+- Optional CSV export for Users and Audit Logs was not added; required exports are green and optional exports remain available for backlog/prioritization.
+- Phase 7 will expand Audit Logs with temporal-table history and deeper audit administration.
+- Conventional Commit message when commit is requested: `feat: standardize data tables and csv export`

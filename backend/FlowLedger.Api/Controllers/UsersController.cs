@@ -32,7 +32,14 @@ public sealed class UsersController : ControllerBase
         CancellationToken cancellationToken = default)
     {
         var query = new UserQuery(page, pageSize, search, role, status, sortBy, sortDirection);
-        return Ok(await _userAdminService.GetAsync(query, User.ToCurrentUser(), cancellationToken));
+        try
+        {
+            return Ok(await _userAdminService.GetAsync(query, User.ToCurrentUser(), cancellationToken));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpGet("{id:guid}")]

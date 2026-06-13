@@ -1,5 +1,6 @@
 using FlowLedger.Api.Extensions;
 using FlowLedger.Application.Common;
+using FlowLedger.Application.Common.Csv;
 using FlowLedger.Application.Customers;
 using FlowLedger.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
@@ -30,7 +31,34 @@ public sealed class CustomersController : ControllerBase
         CancellationToken cancellationToken = default)
     {
         var query = new ClientQuery(page, pageSize, search, status, sortBy, sortDirection);
-        return Ok(await _customerService.GetAsync(query, User.ToCurrentUser(), cancellationToken));
+        try
+        {
+            return Ok(await _customerService.GetAsync(query, User.ToCurrentUser(), cancellationToken));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpGet("export")]
+    public async Task<IActionResult> Export(
+        [FromQuery] string? search = null,
+        [FromQuery] ClientStatus? status = null,
+        [FromQuery] string? sortBy = "companyName",
+        [FromQuery] string? sortDirection = "asc",
+        CancellationToken cancellationToken = default)
+    {
+        var query = new ClientQuery(Search: search, Status: status, SortBy: sortBy, SortDirection: sortDirection);
+        try
+        {
+            var csv = await _customerService.ExportCsvAsync(query, User.ToCurrentUser(), cancellationToken);
+            return File(csv.ToBytes(), CsvResult.ContentType, csv.FileName);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpGet("{id:guid}")]

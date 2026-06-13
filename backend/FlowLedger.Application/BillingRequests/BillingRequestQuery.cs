@@ -14,4 +14,4 @@ public sealed record BillingRequestQuery(
     string? SortBy = null,
     string? SortDirection = null,
     int Page = 1,
-    int PageSize = 20);
+    int PageSize = 25);

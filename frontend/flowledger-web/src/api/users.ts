@@ -7,6 +7,8 @@ export type UserListParams = {
   search?: string
   role?: Role | ''
   status?: UserStatus | ''
+  sortBy?: string
+  sortDirection?: 'asc' | 'desc'
 }
 
 export async function getUsers(params: UserListParams = {}) {

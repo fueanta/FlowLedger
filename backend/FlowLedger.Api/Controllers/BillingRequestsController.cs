@@ -1,6 +1,7 @@
 using FlowLedger.Api.Extensions;
 using FlowLedger.Application.BillingRequests;
 using FlowLedger.Application.Common;
+using FlowLedger.Application.Common.Csv;
 using FlowLedger.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -32,12 +33,46 @@ public sealed class BillingRequestsController : ControllerBase
         [FromQuery] string? sortBy,
         [FromQuery] string? sortDirection,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20,
+        [FromQuery] int pageSize = 25,
         CancellationToken cancellationToken = default)
     {
         var query = new BillingRequestQuery(status, customerId, queue, assignedToMe, createdByMe, search, fromDate, untilDate, sortBy, sortDirection, page, pageSize);
 
-        return Ok(await _billingRequestService.GetAsync(query, User.ToCurrentUser(), cancellationToken));
+        try
+        {
+            return Ok(await _billingRequestService.GetAsync(query, User.ToCurrentUser(), cancellationToken));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpGet("export")]
+    public async Task<IActionResult> Export(
+        [FromQuery] BillingRequestStatus? status,
+        [FromQuery] Guid? customerId,
+        [FromQuery] WorkflowQueue? queue,
+        [FromQuery] bool assignedToMe,
+        [FromQuery] bool createdByMe,
+        [FromQuery] string? search,
+        [FromQuery] DateTime? fromDate,
+        [FromQuery] DateTime? untilDate,
+        [FromQuery] string? sortBy,
+        [FromQuery] string? sortDirection,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new BillingRequestQuery(status, customerId, queue, assignedToMe, createdByMe, search, fromDate, untilDate, sortBy, sortDirection);
+
+        try
+        {
+            var csv = await _billingRequestService.ExportCsvAsync(query, User.ToCurrentUser(), cancellationToken);
+            return File(csv.ToBytes(), CsvResult.ContentType, csv.FileName);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpGet("{id:guid}")]

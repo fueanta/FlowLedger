@@ -27,10 +27,17 @@ public sealed class WorkQueueController : ControllerBase
         [FromQuery] string? sortBy,
         [FromQuery] string? sortDirection,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20,
+        [FromQuery] int pageSize = 25,
         CancellationToken cancellationToken = default)
     {
         var query = new WorkQueueQuery(queue, search, sortBy, sortDirection, page, pageSize);
-        return Ok(await _workQueueService.GetAsync(query, User.ToCurrentUser(), cancellationToken));
+        try
+        {
+            return Ok(await _workQueueService.GetAsync(query, User.ToCurrentUser(), cancellationToken));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 }

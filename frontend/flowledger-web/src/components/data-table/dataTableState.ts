@@ -1,3 +1,6 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
+import { getMyPreferences, updateMyPreferences } from '../../api/preferences'
 import type { DataTableState, SortDirection } from './dataTableTypes'
 
 export function readDataTableState(searchParams: URLSearchParams, defaults?: Partial<DataTableState>): DataTableState {
@@ -34,4 +37,40 @@ function allowedPageSize(value: string | null, fallback: number) {
 
 function sortDirection(value: string | null, fallback: SortDirection): SortDirection {
   return value === 'asc' || value === 'desc' ? value : fallback
+}
+
+export function useDataTableState(defaults: Partial<DataTableState> = {}) {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const queryClient = useQueryClient()
+  const preferencesQuery = useQuery({
+    queryKey: ['preferences', 'me'],
+    queryFn: getMyPreferences,
+    staleTime: 60_000,
+  })
+  const updatePreferencesMutation = useMutation({
+    mutationFn: updateMyPreferences,
+    onSuccess: (preference) => queryClient.setQueryData(['preferences', 'me'], preference),
+  })
+
+  const state = readDataTableState(searchParams, {
+    ...defaults,
+    pageSize: defaults.pageSize ?? preferencesQuery.data?.rowsPerPage ?? 25,
+  })
+
+  function update(next: Partial<DataTableState>) {
+    setSearchParams(writeDataTableState(searchParams, next))
+  }
+
+  return {
+    state,
+    setPage: (page: number) => update({ page }),
+    setSearch: (search: string) => update({ search, page: 1 }),
+    setSort: (sortBy: string, sortDirection: SortDirection) => update({ sortBy, sortDirection, page: 1 }),
+    setPageSize: (pageSize: number) => {
+      update({ pageSize, page: 1 })
+      if (preferencesQuery.data && preferencesQuery.data.rowsPerPage !== pageSize) {
+        updatePreferencesMutation.mutate({ ...preferencesQuery.data, rowsPerPage: pageSize })
+      }
+    },
+  }
 }

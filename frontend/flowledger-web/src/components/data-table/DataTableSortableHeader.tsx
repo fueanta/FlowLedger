@@ -23,7 +23,7 @@ export function DataTableSortableHeader({
     <Button
       type="button"
       variant="ghost"
-      className="-ml-3 h-8 px-2"
+      className="-ml-3 h-auto min-h-8 whitespace-normal px-2 text-left"
       aria-sort={active ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
       onClick={() => onSort(column, nextDirection)}
     >
