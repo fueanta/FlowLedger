@@ -1,0 +1,140 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Printer } from 'lucide-react'
+import { Link, useParams } from 'react-router-dom'
+import { toast } from 'sonner'
+import { getInvoice, markInvoicePaid } from '../api/invoices'
+import { PageHeader } from '../components/PageHeader'
+import { ErrorState, LoadingBlock } from '../components/StateViews'
+import { StatusBadge } from '../components/StatusBadge'
+import { Button } from '../components/ui/button'
+import { Card, CardContent } from '../components/ui/card'
+import { useAuth } from '../auth/useAuth'
+import { getApiErrorMessage } from '../lib/apiClient'
+import { formatDate, formatMoney } from '../lib/format'
+import { canMarkInvoicePaid } from '../lib/permissions'
+
+export function InvoiceDetailPage() {
+  const { id } = useParams()
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+  const invoiceQuery = useQuery({
+    queryKey: ['invoice', id],
+    queryFn: () => getInvoice(id ?? ''),
+    enabled: Boolean(id),
+  })
+  const markPaidMutation = useMutation({
+    mutationFn: markInvoicePaid,
+    onSuccess: async () => {
+      toast.success('Invoice marked as paid.')
+      await queryClient.invalidateQueries({ queryKey: ['invoice', id] })
+      await queryClient.invalidateQueries({ queryKey: ['invoices'] })
+      await queryClient.invalidateQueries({ queryKey: ['billing-request'] })
+      await queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] })
+    },
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Invoice could not be marked as paid.')),
+  })
+
+  if (invoiceQuery.isLoading) {
+    return (
+      <>
+        <PageHeader title="Invoice" description="Loading invoice detail." />
+        <LoadingBlock />
+      </>
+    )
+  }
+
+  if (invoiceQuery.isError || !invoiceQuery.data) {
+    return (
+      <>
+        <PageHeader title="Invoice" description="Printable invoice detail." />
+        <ErrorState message="Invoice could not be loaded." onRetry={() => void invoiceQuery.refetch()} />
+      </>
+    )
+  }
+
+  const invoice = invoiceQuery.data
+  const canPay = user ? canMarkInvoicePaid(user.role, invoice.status) : false
+
+  return (
+    <>
+      <PageHeader
+        title={invoice.invoiceNumber}
+        description={`${invoice.customer.name} · ${formatMoney(invoice.totalAmount)}`}
+        actions={
+          <>
+            <Button variant="outline" onClick={() => window.print()}>
+              <Printer className="h-4 w-4" aria-hidden="true" />
+              Print
+            </Button>
+            {canPay ? (
+              <Button onClick={() => markPaidMutation.mutate(invoice.id)} disabled={markPaidMutation.isPending}>
+                Mark Paid
+              </Button>
+            ) : null}
+          </>
+        }
+      />
+
+      <Card className="mx-auto max-w-4xl print:border-0">
+        <CardContent className="p-8">
+          <div className="flex flex-col gap-6 border-b border-slate-200 pb-6 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase text-blue-950">FlowLedger</p>
+              <h2 className="mt-2 text-3xl font-bold text-slate-950">{invoice.invoiceNumber}</h2>
+              <p className="mt-2 text-sm text-slate-600">
+                Request{' '}
+                <Link className="font-semibold text-blue-950 underline" to={`/app/requests/${invoice.billingRequest.id}`}>
+                  {invoice.billingRequest.requestNumber}
+                </Link>
+              </p>
+            </div>
+            <StatusBadge status={invoice.status} />
+          </div>
+
+          <div className="grid gap-6 border-b border-slate-200 py-6 md:grid-cols-2">
+            <div>
+              <p className="text-sm font-semibold text-slate-950">Bill To</p>
+              <p className="mt-2 text-sm text-slate-900">{invoice.customer.name}</p>
+              <p className="text-sm text-slate-600">{invoice.customer.contactEmail}</p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{invoice.customer.billingAddress}</p>
+            </div>
+            <dl className="space-y-2 text-sm">
+              <DetailRow label="Issued" value={formatDate(invoice.issuedAtUtc)} />
+              <DetailRow label="Due" value={formatDate(invoice.dueAtUtc)} />
+              <DetailRow label="Paid" value={formatDate(invoice.paidAtUtc)} />
+              <DetailRow label="Request status" value={invoice.billingRequest.status} />
+            </dl>
+          </div>
+
+          <div className="py-6">
+            <div className="rounded-md border border-slate-200">
+              <div className="grid grid-cols-[1fr_140px] border-b border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600">
+                <span>Description</span>
+                <span className="text-right">Amount</span>
+              </div>
+              <div className="grid grid-cols-[1fr_140px] px-4 py-4 text-sm">
+                <span>{invoice.billingRequest.title}</span>
+                <span className="text-right">{formatMoney(invoice.subtotalAmount)}</span>
+              </div>
+            </div>
+          </div>
+
+          <dl className="ml-auto max-w-sm space-y-3 text-sm">
+            <DetailRow label="Subtotal" value={formatMoney(invoice.subtotalAmount)} />
+            <DetailRow label="VAT" value={formatMoney(invoice.vatAmount)} />
+            <DetailRow label="Total" value={formatMoney(invoice.totalAmount)} strong />
+          </dl>
+        </CardContent>
+      </Card>
+    </>
+  )
+}
+
+function DetailRow({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className="flex justify-between gap-4">
+      <dt className={strong ? 'font-semibold text-slate-950' : 'text-slate-600'}>{label}</dt>
+      <dd className={strong ? 'font-semibold text-slate-950' : 'text-slate-900'}>{value}</dd>
+    </div>
+  )
+}

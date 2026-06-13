@@ -545,3 +545,168 @@
 
 - Default one-month reporting returns `0` seeded requests right now because seed data is from January 2026 and current date is June 2026. Current pending backlog remains visible.
 - Per project instruction, changes are not committed yet. Commit only after explicit user signal.
+
+## Phase 7: Frontend auth and layout
+
+### Built
+
+- Added the planned frontend stack dependencies for React Router, TanStack Query, Axios, React Hook Form, Zod, Tailwind CSS, shadcn-style UI primitives, Sonner, Lucide icons, Recharts, and frontend tests.
+- Added Tailwind configuration and replaced the Vite starter page with the FlowLedger application shell.
+- Added API client with JWT bearer token attachment.
+- Added centralized `401` handling.
+  - Stored auth is cleared.
+  - User is redirected to `/login`.
+  - Login page tells the user the session expired and asks them to log in again.
+- Added `AuthProvider`, protected routes, login page, and app layout with sidebar/topbar navigation.
+- Added role permission helpers for request creation, approval/rejection, submission/update, and invoice payment actions.
+- Added a small configured CORS policy in the API so the Vite frontend at `http://localhost:5173` can call the API at `http://localhost:8080`.
+
+### Verification
+
+- Passed: frontend tests.
+  - Command: `cd frontend/flowledger-web && npm test`.
+  - Result: 5 tests passed, 0 failed.
+  - Coverage added:
+    - login form validation requires valid email and password
+    - role permission helpers match planned Sales, Accounts, Manager, and Admin behavior
+- Passed: frontend production build.
+  - Command: `cd frontend/flowledger-web && npm run build`.
+  - Result: TypeScript and Vite production build succeeded.
+  - Note: Vite warned that one bundle chunk is over 500 kB after minification. This is acceptable for the current non-code-split assignment scope.
+- Passed: backend build through Docker SDK container.
+  - Command: `docker run --rm -v "$PWD:/src" -w /src/backend mcr.microsoft.com/dotnet/sdk:8.0-alpine sh -lc 'dotnet build FlowLedger.sln'`.
+  - Result: build succeeded with 0 warnings and 0 errors.
+- Passed: full backend test suite.
+  - Command: `docker run --rm -e TESTCONTAINERS_RYUK_DISABLED=true -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -v "$PWD:/src" -v /var/run/docker.sock:/var/run/docker.sock -w /src/backend mcr.microsoft.com/dotnet/sdk:8.0-alpine sh -lc 'dotnet test FlowLedger.sln --logger "console;verbosity=minimal"'`.
+  - Result: 29 tests passed, 0 failed.
+- Passed: frontend run smoke.
+  - Command: `cd frontend/flowledger-web && npm run dev -- --host 0.0.0.0 --port 5173`.
+  - Result: Vite started on `http://localhost:5173`.
+  - Smoke command: `curl -I http://localhost:5173/login`.
+  - Result: `HTTP/1.1 200 OK`.
+
+### Notes
+
+- Local `dotnet` is still unavailable in this shell. No global install was performed.
+- Phase 7 routes intentionally use placeholders for app content. Phase 8 fills the dashboard, request, invoice, customer, and settings pages.
+- Per project instruction, changes are not committed yet. Commit only after explicit user signal.
+
+## Phase 8: Frontend pages
+
+### Built
+
+- Replaced Phase 7 placeholders with the planned FlowLedger pages:
+  - Dashboard
+  - Billing request list
+  - Create billing request
+  - Edit draft/rejected billing request
+  - Billing request detail
+  - Invoice list
+  - Invoice detail
+  - Customers
+  - Settings/About
+- Added frontend API modules for dashboard, customers, billing requests, and invoices.
+- Added typed frontend DTOs matching API responses.
+- Added shared UI components:
+  - page header
+  - metric card
+  - status badge
+  - loading/error/empty states
+  - audit timeline
+  - action dialog
+  - shadcn-style table, select, textarea, skeleton, and dialog primitives
+- Added Dashboard charts with Recharts:
+  - status donut
+  - invoice trend bar chart
+  - aging bucket horizontal bar chart
+  - recent activity timeline
+- Added role-aware request list defaults:
+  - Sales defaults to created-by-me
+  - Accounts defaults to Accounts Review
+  - Manager defaults to Manager Approval
+  - Admin sees all by default
+- Added request filters for search, status, customer, assigned-to-me, and created-by-me.
+- Added invoice filters for search, status, and customer.
+- Added create/edit billing request UI with React Hook Form and Zod.
+  - customer required
+  - title required, 3-200 characters
+  - description max 2000 characters
+  - at least one line item
+  - line item description required
+  - quantity 1-10,000
+  - unit price 1-10,000,000
+  - live subtotal, VAT, and total calculation
+- Added end-user workflows in the UI:
+  - Sales creates draft
+  - Sales saves and submits
+  - Accounts approves or rejects
+  - Accounts approval under threshold generates invoice
+  - Accounts approval above threshold moves request to Manager approval
+  - Manager approves or rejects
+  - Sales edits rejected request and resubmits
+  - any authorized user adds comments
+  - Accounts/Admin marks issued invoices paid
+- Added invoice detail styled as a printable invoice with a print action.
+- Added Settings/About page with architecture summary, demo user emails, password environment variable names, known limitations, and AI usage note.
+
+### Verification
+
+- Passed: frontend tests.
+  - Command: `cd frontend/flowledger-web && npm test`.
+  - Result: 9 tests passed, 0 failed.
+  - Coverage added:
+    - login form validation
+    - role permission helpers
+    - API client clears stored auth and calls unauthorized handler on `401`
+    - billing request form validation
+    - billing request subtotal/VAT/total calculation
+- Passed: frontend lint.
+  - Command: `cd frontend/flowledger-web && npm run lint`.
+  - Result: ESLint passed with 0 errors.
+- Passed: frontend production build.
+  - Command: `cd frontend/flowledger-web && npm run build`.
+  - Result: TypeScript and Vite production build succeeded.
+  - Note: Vite warned that the main bundle is over 500 kB after minification because current Phase 8 keeps all pages/charts in one bundle. This is acceptable for the current assignment scope; route-level code splitting can be added later if needed.
+- Passed: backend build through Docker SDK container.
+  - Command: `docker run --rm -v "$PWD:/src" -w /src/backend mcr.microsoft.com/dotnet/sdk:8.0-alpine sh -lc 'dotnet build FlowLedger.sln'`.
+  - Result: build succeeded with 0 warnings and 0 errors.
+- Passed: full backend test suite.
+  - Command: `docker run --rm -e TESTCONTAINERS_RYUK_DISABLED=true -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -v "$PWD:/src" -v /var/run/docker.sock:/var/run/docker.sock -w /src/backend mcr.microsoft.com/dotnet/sdk:8.0-alpine sh -lc 'dotnet test FlowLedger.sln --logger "console;verbosity=minimal"'`.
+  - Result: 29 tests passed, 0 failed.
+- Passed: Docker Compose build and runtime smoke.
+  - First Compose attempt exposed `package-lock.json` mismatch with Dockerfile `npm ci`.
+  - Fix command: `docker run --rm -v "$PWD:/app" -w /app node:22-alpine npm install --package-lock-only` from `frontend/flowledger-web`.
+  - Re-run command: `docker compose up --build -d`.
+  - Result: SQL Server became healthy, API started, and frontend started.
+  - Frontend smoke:
+    - `curl -I http://localhost:5173/login` returned `200`.
+    - `curl -I http://localhost:5173/app/dashboard` returned `200`.
+  - API CORS smoke:
+    - `OPTIONS http://localhost:8080/api/dashboard/summary` with `Origin: http://localhost:5173` returned `204`.
+  - API workflow smoke:
+    - Sales login succeeded.
+    - Accounts login succeeded.
+    - Manager login succeeded.
+    - Admin login succeeded.
+    - Sales created and submitted a low-value request.
+    - Accounts approved it and invoice was generated.
+    - Accounts marked the invoice paid.
+    - Sales created and submitted a high-value request.
+    - Accounts approved it and it moved to `ManagerApproval`.
+    - Manager approved it and invoice was generated.
+    - Sales created and submitted a request.
+    - Accounts rejected it.
+    - Sales revised it and resubmitted it to `AccountsReview`.
+  - Smoke output: `phase8 smoke ok low=InvoiceGenerated paid=Paid high_escalated=ManagerApproval high_final=InvoiceGenerated rejected=Rejected resubmitted=AccountsReview dashboard_total=3 cors=204`.
+  - Cleanup: `docker compose down -v --remove-orphans` stopped and removed containers, network, and SQL Server volume.
+- Passed: frontend Docker image rebuild after adding `.dockerignore`.
+  - Command: `docker compose build web`.
+  - Result: image build succeeded and frontend production build ran inside Docker.
+
+### Notes
+
+- UI required API CORS support because browser requests come from `http://localhost:5173` while the API runs on `http://localhost:8080`. Added a configured CORS policy with local Vite origin as default.
+- The edit UI uses `/app/requests/:id/edit` to support the planned rejected-request revision flow. Backend already supported update and resubmit.
+- No browser automation dependency was added. Runtime UI verification used Vite/Docker build, frontend route responses, TypeScript, lint, tests, and API workflow smoke.
+- Local `dotnet` is still unavailable in this shell. No global install was performed.
+- Per project instruction, changes are not committed yet. Commit only after explicit user signal.

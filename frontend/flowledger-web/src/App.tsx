@@ -1,31 +1,65 @@
-import './App.css'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { Navigate, Outlet, RouterProvider, createBrowserRouter } from 'react-router-dom'
+import { Toaster } from 'sonner'
+import { LoginPage } from './auth/LoginPage'
+import { ProtectedRoute } from './auth/ProtectedRoute'
+import { AuthProvider } from './auth/AuthContext'
+import { AppLayout } from './layout/AppLayout'
+import { CustomersPage } from './pages/CustomersPage'
+import { DashboardPage } from './pages/DashboardPage'
+import { InvoiceDetailPage } from './pages/InvoiceDetailPage'
+import { InvoiceListPage } from './pages/InvoiceListPage'
+import { RequestDetailPage } from './pages/RequestDetailPage'
+import { RequestFormPage } from './pages/RequestFormPage'
+import { RequestListPage } from './pages/RequestListPage'
+import { SettingsPage } from './pages/SettingsPage'
+
+const queryClient = new QueryClient()
+
+const router = createBrowserRouter([
+  {
+    element: <RootProviders />,
+    children: [
+      { path: '/', element: <Navigate to="/app/dashboard" replace /> },
+      { path: '/login', element: <LoginPage /> },
+      {
+        path: '/app',
+        element: (
+          <ProtectedRoute>
+            <AppLayout />
+          </ProtectedRoute>
+        ),
+        children: [
+          { index: true, element: <Navigate to="/app/dashboard" replace /> },
+          { path: 'dashboard', element: <DashboardPage /> },
+          { path: 'requests', element: <RequestListPage /> },
+          { path: 'requests/new', element: <RequestFormPage /> },
+          { path: 'requests/:id/edit', element: <RequestFormPage /> },
+          { path: 'requests/:id', element: <RequestDetailPage /> },
+          { path: 'invoices', element: <InvoiceListPage /> },
+          { path: 'invoices/:id', element: <InvoiceDetailPage /> },
+          { path: 'customers', element: <CustomersPage /> },
+          { path: 'settings', element: <SettingsPage /> },
+        ],
+      },
+    ],
+  },
+])
+
+function RootProviders() {
+  return (
+    <AuthProvider>
+      <Outlet />
+      <Toaster richColors position="top-right" />
+    </AuthProvider>
+  )
+}
 
 function App() {
   return (
-    <main className="landing-shell">
-      <section className="landing-panel" aria-labelledby="page-title">
-        <p className="eyebrow">ERP workflow module</p>
-        <h1 id="page-title">FlowLedger</h1>
-        <p className="summary">
-          Billing request approvals, invoice generation, audit history, and
-          dashboard reporting for an internal finance workflow.
-        </p>
-        <div className="status-grid" aria-label="Phase 1 status">
-          <div>
-            <span>Backend</span>
-            <strong>/health ready</strong>
-          </div>
-          <div>
-            <span>Frontend</span>
-            <strong>Vite ready</strong>
-          </div>
-          <div>
-            <span>Next phase</span>
-            <strong>Domain model</strong>
-          </div>
-        </div>
-      </section>
-    </main>
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
   )
 }
 

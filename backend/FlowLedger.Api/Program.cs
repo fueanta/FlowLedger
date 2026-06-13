@@ -16,6 +16,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 var jwtOptions = BuildJwtOptions(builder);
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? ["http://localhost:5173"];
 
 builder.Services.AddSingleton(Options.Create(jwtOptions));
 builder.Services.AddValidatorsFromAssemblyContaining<CreateBillingRequestDtoValidator>();
@@ -73,6 +75,15 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("ManagerOnly", policy => policy.RequireRole("Manager", "Admin"));
     options.AddPolicy("InternalUser", policy => policy.RequireRole("Sales", "Accounts", "Manager", "Admin"));
 });
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("FlowLedgerWeb", policy =>
+    {
+        policy.WithOrigins(allowedOrigins)
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
 
 if (!string.IsNullOrWhiteSpace(connectionString))
 {
@@ -89,6 +100,7 @@ if (!app.Environment.IsProduction())
 }
 
 app.UseAuthentication();
+app.UseCors("FlowLedgerWeb");
 app.UseAuthorization();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
