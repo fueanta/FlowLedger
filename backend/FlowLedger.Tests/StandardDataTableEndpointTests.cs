@@ -156,4 +156,20 @@ public class StandardDataTableEndpointTests
             x.ActionType == AuditActionType.Created &&
             x.ActorDisplayName.Contains("Sarah"));
     }
+
+    [Theory]
+    [InlineData(RoleName.Manager)]
+    [InlineData(RoleName.Accounts)]
+    [InlineData(RoleName.Admin)]
+    [InlineData(RoleName.Sales)]
+    public async Task AuditLogs_AllInternalRoles_SeeAllLogs(RoleName role)
+    {
+        using var client = await _fixture.CreateAuthenticatedClientAsync(role);
+
+        var response = await client.GetAsync("/api/audit-logs?pageSize=10&sortBy=createdAtUtc&sortDirection=desc");
+        var result = await response.Content.ReadFromJsonAsync<PagedResult<AuditLogListItemDto>>(JsonOptions);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        result!.Items.Should().NotBeEmpty("all internal roles should see the full audit log.");
+    }
 }

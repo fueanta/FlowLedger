@@ -24,12 +24,6 @@ public sealed class AuditLogService : IAuditLogService
         var page = PagingQueryGuard.Page(query.Page);
         var pageSize = PagingQueryGuard.PageSize(query.PageSize);
         var logs = _dbContext.AuditLogs.AsNoTracking().AsQueryable();
-
-        if (!currentUser.IsAdmin)
-        {
-            logs = logs.Where(x => x.BillingRequest != null && x.BillingRequest.CreatedByUserId == currentUser.Id);
-        }
-
         if (!string.IsNullOrWhiteSpace(query.EntityType))
         {
             var entityType = query.EntityType.Trim();

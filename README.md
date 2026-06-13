@@ -8,7 +8,7 @@ FlowLedger is an ERP-style billing approval and invoice workflow module. Sales c
 - React Vite TypeScript frontend with Tailwind, shadcn-style components, TanStack Query, Axios, React Hook Form, Zod, Lucide, and Recharts.
 - JWT login with seeded demo users and role-based API/UI behavior.
 - Billing request create, edit, submit, approve, reject, comment, invoice generation, payment marking, dashboard, and audit timeline.
-- Session 02 workflow enhancements: client administration, user enrollment/admin, configurable billing settings, work queues, user preferences, standardized paginated tables, CSV exports, audit-log filtering, SQL Server temporal history, and invoice print/PDF export.
+- Workflow enhancements: client administration, user enrollment/admin, configurable billing settings, work queues, user preferences, standardized paginated tables, CSV exports, audit-log filtering, SQL Server temporal history, and invoice print/PDF export.
 
 ## Selected option
 
@@ -92,6 +92,8 @@ Set `ConnectionStrings__DefaultConnection`, `Jwt__Key`, and the `SeedUsers__*Pas
 8. Admin configures VAT, approval threshold, invoice due days, and JWT lifetime.
 9. List pages share server-side pagination, search, sorting, page-size preferences, and CSV export where required.
 
+![FlowLedger high-level behaviour flow](docs/agent-build-sessions/02-workflow-administration-audit-enhancements/session-flow.png)
+
 ## Architecture overview
 
 The frontend calls the API through Axios and TanStack Query. The API exposes controller endpoints, delegates workflow behavior to application service interfaces, and stores data through EF Core with SQL Server. Services enforce workflow transitions and detailed permission checks; controllers stay thin.
@@ -124,17 +126,6 @@ Main entities are `User`, `EnrollmentRequest`, `UserPreference`, `Customer`, `Bi
 ## Agent build sessions
 
 Build-session artifacts are kept under `docs/agent-build-sessions/` so build plans, implementation logs, and generated behaviour snapshots stay separate from general project docs.
-
-Signed-off sessions:
-
-- `docs/agent-build-sessions/01-initial-flowledger-build/erp_workflow_build_plan.md`
-- `docs/agent-build-sessions/01-initial-flowledger-build/implementation-log.md`
-- `docs/agent-build-sessions/01-initial-flowledger-build/session-flow.png`
-- `docs/agent-build-sessions/02-workflow-administration-audit-enhancements/workflow_admin_audit_enhancements_plan.md`
-- `docs/agent-build-sessions/02-workflow-administration-audit-enhancements/implementation-log.md`
-- `docs/agent-build-sessions/02-workflow-administration-audit-enhancements/session-flow.png`
-
-![FlowLedger session 02 behaviour flow](docs/agent-build-sessions/02-workflow-administration-audit-enhancements/session-flow.png)
 
 ## API overview
 
@@ -206,8 +197,8 @@ docker run --rm -e TESTCONTAINERS_RYUK_DISABLED=true -e TESTCONTAINERS_HOST_OVER
 - Mock seeded-user login instead of a real identity provider.
 - JWT revocation is not implemented yet; see `docs/backlog.md`.
 - Rate limiting is not implemented yet; future hardening should cover login, registration, workflow mutations, CSV export, and PDF export endpoints.
+- Roles are predefined in the system; admins should be able to create new roles and define access control rules for these roles.
 - No file attachments, email notifications, payment gateway, or accounting ledger integration.
-- Optional CSV export for Users and Audit Logs is not implemented; required CSV exports for Billing Requests, Invoices, and Clients are implemented.
 - Dashboard reporting is intentionally compact for the assignment scope.
 
 ## What I would improve with more time
@@ -234,6 +225,10 @@ The project uses an agentic session hygiene pattern: every build session keeps i
 
 See:
 
-- `docs/design-note.md`
+- `docs/backlog.md`
 - `docs/deployment-security.md`
-- `docs/agent-build-sessions/01-initial-flowledger-build/implementation-log.md`
+- `docs/design-note.md`
+- `docs/screenshots.md`
+- `docs/temporal-audit.md`
+- `docs/agent-build-sessions/01-initial-flowledger-build/erp_workflow_build_plan.md`
+- `docs/agent-build-sessions/02-workflow-administration-audit-enhancements/workflow_admin_audit_enhancements_plan.md`
