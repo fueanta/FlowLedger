@@ -14,10 +14,12 @@ namespace FlowLedger.Api.Controllers;
 public sealed class InvoicesController : ControllerBase
 {
     private readonly IInvoiceService _invoiceService;
+    private readonly IInvoicePdfService _invoicePdfService;
 
-    public InvoicesController(IInvoiceService invoiceService)
+    public InvoicesController(IInvoiceService invoiceService, IInvoicePdfService invoicePdfService)
     {
         _invoiceService = invoiceService;
+        _invoicePdfService = invoicePdfService;
     }
 
     [HttpGet]
@@ -69,6 +71,20 @@ public sealed class InvoicesController : ControllerBase
         try
         {
             return Ok(await _invoiceService.GetByIdAsync(id, User.ToCurrentUser(), cancellationToken));
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "Invoice was not found." });
+        }
+    }
+
+    [HttpGet("{id:guid}/pdf")]
+    public async Task<IActionResult> GetPdf(Guid id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var pdf = await _invoicePdfService.GenerateAsync(id, User.ToCurrentUser(), cancellationToken);
+            return File(pdf.Content, InvoicePdfResult.ContentType, pdf.FileName);
         }
         catch (KeyNotFoundException)
         {

@@ -24,7 +24,7 @@ export function AppLayout() {
 
   return (
     <div className="min-h-svh bg-slate-50">
-      <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-slate-200 bg-white lg:block">
+      <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-slate-200 bg-white print:hidden lg:block">
         <div className="flex h-full flex-col">
           <div className="p-5">
             <div className="flex items-center gap-3">
@@ -68,8 +68,8 @@ export function AppLayout() {
         </div>
       </aside>
 
-      <div className="min-w-0 lg:pl-64">
-        <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur lg:px-8">
+      <div className="min-w-0 print:p-0 lg:pl-64">
+        <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur print:hidden lg:px-8">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="lg:hidden">
               <p className="text-lg font-bold text-slate-950">FlowLedger</p>
@@ -105,7 +105,7 @@ export function AppLayout() {
             </div>
           </div>
         </header>
-        <main className="min-w-0 px-4 py-6 lg:px-8">
+        <main className="min-w-0 px-4 py-6 print:p-0 lg:px-8">
           <Outlet />
         </main>
       </div>

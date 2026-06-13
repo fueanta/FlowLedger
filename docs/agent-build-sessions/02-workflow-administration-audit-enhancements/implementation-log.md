@@ -610,3 +610,67 @@ Read from the bottom first. Newest phase status, verification notes, and blocker
 
 - Phase 7 is signed off.
 - Conventional Commit message when commit is requested: `feat: add temporal audit history`
+
+## Phase 8: Invoice Print and PDF Export
+
+### Built
+
+- Added invoice PDF application contract:
+  - `IInvoicePdfService`
+  - `InvoicePdfResult`
+- Added infrastructure PDF generation through `InvoicePdfService`.
+- Added `GET /api/invoices/{id}/pdf`.
+- PDF response returns:
+  - `Content-Type: application/pdf`
+  - Attachment disposition with the invoice number as the file name.
+  - Non-empty PDF bytes with a valid `%PDF-` signature.
+- PDF output includes:
+  - FlowLedger header.
+  - Invoice number and status.
+  - Client billing block.
+  - Billing request number/title/status.
+  - Issued date, due date, due period, and paid date when present.
+  - Subtotal, VAT percentage, VAT amount, and total.
+- Did not add QuestPDF because the repo does not establish commercial license eligibility. A local lightweight PDF writer was used to keep the feature dependency-free while satisfying the endpoint contract.
+- Added frontend invoice PDF download action on invoice detail.
+- Kept browser print action.
+- Refined printable invoice layout:
+  - App navigation and header hide during print.
+  - Page action header hides during print.
+  - Printable invoice keeps company/client/request/invoice/tax/due details visible.
+- Added frontend test coverage for invoice detail action visibility.
+
+### Verification
+
+- Passed: full backend test suite through Docker SDK container with Docker socket and host override for Testcontainers.
+  - Command: `docker run --rm -e TESTCONTAINERS_RYUK_DISABLED=true -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -v "$PWD:/src" -v /Users/mutasim/.docker/run/docker.sock:/var/run/docker.sock -w /src/backend mcr.microsoft.com/dotnet/sdk:8.0-alpine sh -lc 'dotnet test FlowLedger.sln'`
+  - Result: 90 tests passed, 0 failed.
+- Passed: PDF endpoint integration tests.
+  - `GetPdf_WithoutAuth_ReturnsUnauthorized`.
+  - `GetPdf_AsAccounts_ReturnsPdfAttachment`.
+- Passed: frontend tests.
+  - Command: `cd frontend/flowledger-web && npm test -- --run`
+  - Result: 24 tests passed, 0 failed.
+- Passed: frontend lint.
+  - Command: `cd frontend/flowledger-web && npm run lint`
+  - Result: ESLint passed.
+- Passed: frontend production build.
+  - Command: `cd frontend/flowledger-web && npm run build`
+  - Result: TypeScript and Vite production build succeeded.
+  - Note: existing Vite chunk-size warning remains.
+- Passed: Docker Compose runtime smoke.
+  - Command: `docker compose up --build -d`
+  - Result: SQL Server became healthy, API started, frontend started.
+  - API smoke confirmed issued invoice PDF download returned `application/pdf`, attachment disposition, `%PDF-` signature, and non-empty bytes.
+  - Frontend route smoke confirmed `/app/invoices` returned `200`.
+  - Smoke output: `phase8 pdf api smoke ok bytes=1732`.
+- Passed: Chromium invoice detail smoke through temporary Playwright Docker container.
+  - Result:
+    - `invoice pdf UI smoke ok viewport=375`
+    - `invoice pdf UI smoke ok viewport=1440`
+  - Coverage: Print action visible, Download PDF action visible, PDF endpoint requested from the UI, VAT/due details visible, and no page-level horizontal scroll.
+
+### Notes
+
+- Phase 8 is signed off.
+- Conventional Commit message when commit is requested: `feat: add invoice pdf export`

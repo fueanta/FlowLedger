@@ -42,6 +42,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IWorkQueueService, WorkQueueService>();
         services.AddScoped<ICustomerService, CustomerService>();
         services.AddScoped<IInvoiceService, InvoiceService>();
+        services.AddScoped<IInvoicePdfService, InvoicePdfService>();
         services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<IAuditLogService, AuditLogService>();
         services.AddScoped<IEnrollmentService, EnrollmentService>();

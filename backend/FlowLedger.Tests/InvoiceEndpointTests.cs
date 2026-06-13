@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FluentAssertions;
@@ -45,6 +46,32 @@ public class InvoiceEndpointTests
         detail!.InvoiceNumber.Should().Be(request.Invoice.InvoiceNumber);
         detail.BillingRequest.Id.Should().Be(billingRequestId);
         detail.Customer.Id.Should().Be(FlowLedgerSeedData.FiberRetailCustomerId);
+    }
+
+    [Fact]
+    public async Task GetPdf_WithoutAuth_ReturnsUnauthorized()
+    {
+        using var client = _fixture.Factory.CreateClient();
+
+        var response = await client.GetAsync($"/api/invoices/{FlowLedgerSeedData.Invoices[0].Id}/pdf");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task GetPdf_AsAccounts_ReturnsPdfAttachment()
+    {
+        using var client = await _fixture.CreateAuthenticatedClientAsync(RoleName.Accounts);
+
+        var response = await client.GetAsync($"/api/invoices/{FlowLedgerSeedData.Invoices[0].Id}/pdf");
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.Content.Headers.ContentType?.MediaType.Should().Be(InvoicePdfResult.ContentType);
+        response.Content.Headers.ContentDisposition?.DispositionType.Should().Be("attachment");
+        response.Content.Headers.ContentDisposition?.FileName.Should().Be("INV-2026-0001.pdf");
+        bytes.Should().NotBeEmpty();
+        Encoding.ASCII.GetString(bytes.Take(5).ToArray()).Should().Be("%PDF-");
     }
 
     [Fact]

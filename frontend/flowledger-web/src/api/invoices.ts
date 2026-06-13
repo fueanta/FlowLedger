@@ -1,5 +1,5 @@
 import { apiClient } from '../lib/apiClient'
-import { downloadCsvBlob } from '../lib/downloadCsv'
+import { downloadCsvBlob, downloadFileBlob } from '../lib/downloadCsv'
 import type { InvoiceDetail, InvoiceListItem, InvoiceStatus, PagedResult } from '../types'
 
 export type InvoiceQuery = {
@@ -31,6 +31,13 @@ export async function exportInvoices(query: Omit<InvoiceQuery, 'page' | 'pageSiz
 export async function getInvoice(id: string) {
   const response = await apiClient.get<InvoiceDetail>(`/invoices/${id}`)
   return response.data
+}
+
+export async function downloadInvoicePdf(id: string, invoiceNumber: string) {
+  const response = await apiClient.get<Blob>(`/invoices/${id}/pdf`, {
+    responseType: 'blob',
+  })
+  downloadFileBlob(response.data, `${invoiceNumber}.pdf`, response.headers['content-disposition'])
 }
 
 export async function markInvoicePaid(id: string) {

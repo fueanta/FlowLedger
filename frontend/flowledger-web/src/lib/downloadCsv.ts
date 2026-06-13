@@ -1,4 +1,8 @@
 export function downloadCsvBlob(blob: Blob, fallbackName: string, contentDisposition?: string) {
+  downloadFileBlob(blob, fallbackName, contentDisposition)
+}
+
+export function downloadFileBlob(blob: Blob, fallbackName: string, contentDisposition?: string) {
   const fileName = contentDisposition ? parseFileName(contentDisposition) ?? fallbackName : fallbackName
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')

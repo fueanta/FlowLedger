@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Printer } from 'lucide-react'
+import { Download, Printer } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { getInvoice, markInvoicePaid } from '../api/invoices'
+import { downloadInvoicePdf, getInvoice, markInvoicePaid } from '../api/invoices'
 import { PageHeader } from '../components/PageHeader'
 import { ErrorState, LoadingBlock } from '../components/StateViews'
 import { StatusBadge } from '../components/StatusBadge'
@@ -33,6 +33,10 @@ export function InvoiceDetailPage() {
     },
     onError: (error) => toast.error(getApiErrorMessage(error, 'Invoice could not be marked as paid.')),
   })
+  const downloadPdfMutation = useMutation({
+    mutationFn: ({ invoiceId, invoiceNumber }: { invoiceId: string; invoiceNumber: string }) => downloadInvoicePdf(invoiceId, invoiceNumber),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Invoice PDF could not be downloaded.')),
+  })
 
   if (invoiceQuery.isLoading) {
     return (
@@ -57,26 +61,32 @@ export function InvoiceDetailPage() {
 
   return (
     <>
-      <PageHeader
-        title={invoice.invoiceNumber}
-        description={`${invoice.customer.name} · ${formatMoney(invoice.totalAmount)}`}
-        actions={
-          <>
-            <Button variant="outline" onClick={() => window.print()}>
-              <Printer className="h-4 w-4" aria-hidden="true" />
-              Print
-            </Button>
-            {canPay ? (
-              <Button onClick={() => markPaidMutation.mutate(invoice.id)} disabled={markPaidMutation.isPending}>
-                Mark Paid
+      <div className="print:hidden">
+        <PageHeader
+          title={invoice.invoiceNumber}
+          description={`${invoice.customer.name} · ${formatMoney(invoice.totalAmount)}`}
+          actions={
+            <>
+              <Button variant="outline" onClick={() => window.print()}>
+                <Printer className="h-4 w-4" aria-hidden="true" />
+                Print
               </Button>
-            ) : null}
-          </>
-        }
-      />
+              <Button variant="outline" onClick={() => downloadPdfMutation.mutate({ invoiceId: invoice.id, invoiceNumber: invoice.invoiceNumber })} disabled={downloadPdfMutation.isPending}>
+                <Download className="h-4 w-4" aria-hidden="true" />
+                Download PDF
+              </Button>
+              {canPay ? (
+                <Button onClick={() => markPaidMutation.mutate(invoice.id)} disabled={markPaidMutation.isPending}>
+                  Mark Paid
+                </Button>
+              ) : null}
+            </>
+          }
+        />
+      </div>
 
-      <Card className="mx-auto max-w-4xl print:border-0">
-        <CardContent className="p-8">
+      <Card className="mx-auto max-w-4xl bg-white print:border-0 print:shadow-none">
+        <CardContent className="p-8 print:p-0">
           <div className="flex flex-col gap-6 border-b border-slate-200 pb-6 md:flex-row md:items-start md:justify-between">
             <div>
               <p className="text-sm font-semibold uppercase text-blue-950">FlowLedger</p>
