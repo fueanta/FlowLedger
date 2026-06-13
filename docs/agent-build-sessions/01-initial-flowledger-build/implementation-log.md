@@ -864,3 +864,131 @@
 
 - This sign-off entry is intentionally at the bottom of the log so the next session can read bottom-first and understand the latest project state quickly.
 - Per project instruction, changes are not committed yet. Commit only after explicit user signal.
+
+## Dashboard UI loading polish
+
+### Built
+
+- Updated `/app/dashboard` header so the subtitle remains the same before and after summary data loads.
+- Moved the `Current Workload` section above the `Period Activity` section.
+- Replaced the generic dashboard loading block with a dashboard-shaped skeleton loader.
+  - Skeleton uses the real dashboard order.
+  - Metric-card skeletons match badge, label, value, hint, and icon dimensions.
+  - Chart skeletons preserve the 288px chart height.
+  - Recent-activity skeleton mirrors the timeline row structure.
+- Added dashboard tests for workload-before-period ordering and stable loading subtitle behavior.
+
+### Verification
+
+- Passed: focused dashboard frontend tests.
+  - Command: `cd frontend/flowledger-web && npm test -- DashboardPage`.
+  - Result: 2 tests passed, 0 failed.
+- Passed: frontend lint.
+  - Command: `cd frontend/flowledger-web && npm run lint`.
+  - Result: ESLint passed with 0 errors.
+- Passed: frontend production build.
+  - Command: `cd frontend/flowledger-web && npm run build`.
+  - Result: TypeScript and Vite production build succeeded.
+  - Note: Vite still warns that one bundle chunk is over 500 kB after minification; this is existing Phase 8 scope behavior.
+- Passed: full frontend test suite.
+  - Command: `cd frontend/flowledger-web && npm test`.
+  - Result: 42 tests passed, 0 failed.
+
+## Work queue table loading polish
+
+### Built
+
+- Updated `/app/work-queue` loading state to use a work-queue table skeleton instead of the generic loading block.
+- Skeleton uses the existing table/card primitives and mirrors the loaded table shape:
+  - eight header columns
+  - six table body rows
+  - request number, title, client, status badge, queue, amount, assigned date, and action-button placeholders
+  - right-aligned action placeholders matching the loaded action cell
+- Kept the search/filter card visible and usable while table data loads.
+- Added a page test for the work-queue loading skeleton.
+
+### Verification
+
+- Passed: focused work-queue frontend test.
+  - Command: `cd frontend/flowledger-web && npm test -- MyWorkQueuePage`.
+  - Result: 1 test passed, 0 failed.
+- Passed: full frontend test suite.
+  - Command: `cd frontend/flowledger-web && npm test`.
+  - Result: 43 tests passed, 0 failed.
+- Passed: frontend lint.
+  - Command: `cd frontend/flowledger-web && npm run lint`.
+  - Result: ESLint passed with 0 errors.
+- Passed: frontend production build.
+  - Command: `cd frontend/flowledger-web && npm run build`.
+  - Result: TypeScript and Vite production build succeeded.
+  - Note: Vite still warns that one bundle chunk is over 500 kB after minification; this is existing Phase 8 scope behavior.
+
+## Detail page loading polish
+
+### Built
+
+- Updated `/app/invoices/:id` loading state to use an invoice-detail skeleton instead of the generic loading block.
+  - Header skeleton mirrors the print-hidden page header and action area.
+  - Invoice card skeleton uses the real `mx-auto max-w-4xl` card width and `p-8` content spacing.
+  - Internal skeletons mirror invoice header, bill-to block, detail rows, line-item amount grid, and totals section.
+- Updated `/app/requests/:id` loading state to use a request-detail skeleton instead of the generic loading block.
+  - Header skeleton mirrors title, status, and edit-action layout.
+  - Main layout uses the real `xl:grid-cols-[1fr_360px]` two-column structure.
+  - Internal skeletons mirror request details, line-items table, comments, actions, invoice summary, and audit timeline cards.
+- Added page tests for invoice-detail and request-detail loading skeletons.
+
+### Verification
+
+- Passed: focused detail-page frontend tests.
+  - Command: `cd frontend/flowledger-web && npm test -- InvoiceDetailPage RequestDetailPage`.
+  - Result: 3 tests passed, 0 failed.
+- Passed: frontend production build.
+  - Command: `cd frontend/flowledger-web && npm run build`.
+  - Result: TypeScript and Vite production build succeeded.
+  - Note: Vite still warns that one bundle chunk is over 500 kB after minification; this is existing Phase 8 scope behavior.
+- Passed: frontend lint.
+  - Command: `cd frontend/flowledger-web && npm run lint`.
+  - Result: ESLint passed with 0 errors.
+- Passed: full frontend test suite.
+  - Command: `cd frontend/flowledger-web && npm test`.
+  - Result: 45 tests passed, 0 failed.
+
+## Workflow table action dialog polish
+
+### Built
+
+- Updated `/app/work-queue` approval action to open the same comment dialog pattern used by request details.
+  - Approve now opens `ActionDialog` with optional `Comment` field.
+  - Confirm sends the comment to `approveBillingRequest(id, comment)`.
+  - Reject keeps the existing required reason dialog.
+- Updated `/app/requests` table approval action to open the same comment dialog pattern.
+  - Approve now opens `ActionDialog` with optional `Comment` field.
+  - Confirm sends the comment to `approveBillingRequest(id, comment)`.
+  - Reject keeps the existing required reason dialog.
+- Updated workflow invalidation so approve/reject actions refresh:
+  - work queue data
+  - My Work nav badge count
+  - billing request lists
+  - dashboard summary
+  - invoices
+- Updated `/app/work-queue` so every successful table load invalidates `work-queue-nav-count`, causing the My Work tab badge to refetch.
+- Added tests for:
+  - work-queue approve/reject dialogs
+  - request-table approve/reject dialogs
+  - My Work badge refresh after work-queue table load
+
+### Verification
+
+- Passed: focused workflow action frontend tests.
+  - Command: `cd frontend/flowledger-web && npm test -- MyWorkQueuePage RequestListPage RequestDetailPage`.
+  - Result: 6 tests passed, 0 failed.
+- Passed: full frontend test suite.
+  - Command: `cd frontend/flowledger-web && npm test`.
+  - Result: 49 tests passed, 0 failed.
+- Passed: frontend lint.
+  - Command: `cd frontend/flowledger-web && npm run lint`.
+  - Result: ESLint passed with 0 errors.
+- Passed: frontend production build.
+  - Command: `cd frontend/flowledger-web && npm run build`.
+  - Result: TypeScript and Vite production build succeeded.
+  - Note: Vite still warns that one bundle chunk is over 500 kB after minification; this is existing Phase 8 scope behavior.

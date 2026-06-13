@@ -4,10 +4,11 @@ import { Link, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { downloadInvoicePdf, getInvoice, markInvoicePaid } from '../api/invoices'
 import { PageHeader } from '../components/PageHeader'
-import { ErrorState, LoadingBlock } from '../components/StateViews'
+import { ErrorState } from '../components/StateViews'
 import { StatusBadge } from '../components/StatusBadge'
 import { Button } from '../components/ui/button'
 import { Card, CardContent } from '../components/ui/card'
+import { Skeleton } from '../components/ui/skeleton'
 import { useAuth } from '../auth/useAuth'
 import { getApiErrorMessage } from '../lib/apiClient'
 import { formatDate, formatMoney } from '../lib/format'
@@ -39,12 +40,7 @@ export function InvoiceDetailPage() {
   })
 
   if (invoiceQuery.isLoading) {
-    return (
-      <>
-        <PageHeader title="Invoice" description="Loading invoice detail." />
-        <LoadingBlock />
-      </>
-    )
+    return <InvoiceDetailSkeleton />
   }
 
   if (invoiceQuery.isError || !invoiceQuery.data) {
@@ -139,6 +135,86 @@ export function InvoiceDetailPage() {
         </CardContent>
       </Card>
     </>
+  )
+}
+
+function InvoiceDetailSkeleton() {
+  return (
+    <>
+      <div className="print:hidden">
+        <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="w-full max-w-3xl">
+            <Skeleton className="h-8 w-56 max-w-full" />
+            <Skeleton className="mt-2 h-5 w-72 max-w-full" />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Skeleton className="h-10 w-24" />
+            <Skeleton className="h-10 w-36" />
+            <Skeleton className="h-10 w-28" />
+          </div>
+        </div>
+      </div>
+
+      <Card className="mx-auto max-w-4xl bg-white print:border-0 print:shadow-none" aria-label="Invoice detail loading skeleton">
+        <CardContent className="p-8 print:p-0">
+          <div className="flex flex-col gap-6 border-b border-slate-200 pb-6 md:flex-row md:items-start md:justify-between">
+            <div className="w-full max-w-md">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="mt-2 h-9 w-56 max-w-full" />
+              <Skeleton className="mt-2 h-5 w-48 max-w-full" />
+            </div>
+            <Skeleton className="h-6 w-20 rounded-full" />
+          </div>
+
+          <div className="grid gap-6 border-b border-slate-200 py-6 md:grid-cols-2">
+            <div>
+              <Skeleton className="h-5 w-16" />
+              <Skeleton className="mt-2 h-5 w-48 max-w-full" />
+              <Skeleton className="mt-1 h-5 w-56 max-w-full" />
+              <Skeleton className="mt-2 h-5 w-full" />
+              <Skeleton className="mt-1 h-5 w-3/4" />
+            </div>
+            <dl className="space-y-2 text-sm">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <SkeletonDetailRow key={index} />
+              ))}
+            </dl>
+          </div>
+
+          <div className="py-6">
+            <div className="rounded-md border border-slate-200">
+              <div className="grid grid-cols-[1fr_140px] border-b border-slate-200 bg-slate-50 px-4 py-3">
+                <Skeleton className="h-5 w-24" />
+                <div className="flex justify-end">
+                  <Skeleton className="h-5 w-20" />
+                </div>
+              </div>
+              <div className="grid grid-cols-[1fr_140px] px-4 py-4">
+                <Skeleton className="h-5 w-full max-w-md" />
+                <div className="flex justify-end">
+                  <Skeleton className="h-5 w-24" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <dl className="ml-auto max-w-sm space-y-3 text-sm">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <SkeletonDetailRow key={index} strong={index === 2} />
+            ))}
+          </dl>
+        </CardContent>
+      </Card>
+    </>
+  )
+}
+
+function SkeletonDetailRow({ strong = false }: { strong?: boolean }) {
+  return (
+    <div className="flex justify-between gap-4">
+      <Skeleton className={strong ? 'h-5 w-20' : 'h-5 w-24'} />
+      <Skeleton className={strong ? 'h-5 w-28' : 'h-5 w-32'} />
+    </div>
   )
 }
 

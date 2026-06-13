@@ -1,18 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Eye, Search, ThumbsUp, XCircle } from 'lucide-react'
-import { useDeferredValue, useMemo, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { approveBillingRequest, getWorkQueue, rejectBillingRequest } from '../api/billingRequests'
 import { ActionDialog } from '../components/ActionDialog'
 import { PageHeader } from '../components/PageHeader'
-import { EmptyState, ErrorState, LoadingBlock } from '../components/StateViews'
+import { EmptyState, ErrorState } from '../components/StateViews'
 import { StatusBadge } from '../components/StatusBadge'
 import { Button } from '../components/ui/button'
 import { Card, CardContent } from '../components/ui/card'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { Select } from '../components/ui/select'
+import { Skeleton } from '../components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
 import { useAuth } from '../auth/useAuth'
 import { getApiErrorMessage } from '../lib/apiClient'
@@ -28,6 +29,7 @@ export function MyWorkQueuePage() {
   const [search, setSearch] = useState('')
   const deferredSearch = useDeferredValue(search)
   const [queue, setQueue] = useState<WorkflowQueue | ''>('')
+  const [approveTarget, setApproveTarget] = useState<BillingRequestListItem | null>(null)
   const [rejectTarget, setRejectTarget] = useState<BillingRequestListItem | null>(null)
 
   const queueQuery = useQuery({
@@ -43,9 +45,10 @@ export function MyWorkQueuePage() {
   })
 
   const approveMutation = useMutation({
-    mutationFn: (id: string) => approveBillingRequest(id),
+    mutationFn: ({ id, comment }: { id: string; comment?: string }) => approveBillingRequest(id, comment),
     onSuccess: async () => {
       toast.success('Request approved.')
+      setApproveTarget(null)
       await invalidateWorkflowQueries(queryClient)
     },
     onError: (error) => toast.error(getApiErrorMessage(error, 'Request approval failed.')),
@@ -62,6 +65,12 @@ export function MyWorkQueuePage() {
   })
 
   const items = useMemo(() => queueQuery.data?.items ?? [], [queueQuery.data?.items])
+
+  useEffect(() => {
+    if (queueQuery.isSuccess) {
+      void queryClient.invalidateQueries({ queryKey: ['work-queue-nav-count'] })
+    }
+  }, [queryClient, queueQuery.dataUpdatedAt, queueQuery.isSuccess])
 
   return (
     <>
@@ -91,7 +100,7 @@ export function MyWorkQueuePage() {
         </CardContent>
       </Card>
 
-      {queueQuery.isLoading ? <LoadingBlock /> : null}
+      {queueQuery.isLoading ? <WorkQueueTableSkeleton /> : null}
       {queueQuery.isError ? <ErrorState message="Work queue could not be loaded." onRetry={() => void queueQuery.refetch()} /> : null}
       {!queueQuery.isLoading && !queueQuery.isError && items.length === 0 ? (
         <EmptyState title="No queued work" message="There are no active requests waiting for this queue." />
@@ -133,7 +142,7 @@ export function MyWorkQueuePage() {
                           </Link>
                         </Button>
                         {user && canApproveRequest(user.role, request.status) ? (
-                          <Button size="sm" onClick={() => approveMutation.mutate(request.id)} disabled={approveMutation.isPending}>
+                          <Button size="sm" onClick={() => setApproveTarget(request)} disabled={approveMutation.isPending}>
                             <ThumbsUp className="h-4 w-4" aria-hidden="true" />
                             Approve
                           </Button>
@@ -155,6 +164,20 @@ export function MyWorkQueuePage() {
       ) : null}
 
       <ActionDialog
+        open={Boolean(approveTarget)}
+        title="Approve request"
+        description={approveTarget ? `Approve ${approveTarget.requestNumber}. Approval can generate an invoice or move high-value work to Manager approval.` : ''}
+        label="Comment"
+        confirmLabel="Approve"
+        busy={approveMutation.isPending}
+        onClose={() => setApproveTarget(null)}
+        onConfirm={(comment) => {
+          if (approveTarget) {
+            approveMutation.mutate({ id: approveTarget.id, comment })
+          }
+        }}
+      />
+      <ActionDialog
         open={Boolean(rejectTarget)}
         title="Reject request"
         description={rejectTarget ? `Reject ${rejectTarget.requestNumber}.` : ''}
@@ -174,8 +197,84 @@ export function MyWorkQueuePage() {
   )
 }
 
+function WorkQueueTableSkeleton() {
+  return (
+    <Card aria-label="Work queue table loading skeleton">
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>
+                <Skeleton className="h-4 w-24" />
+              </TableHead>
+              <TableHead>
+                <Skeleton className="h-4 w-28" />
+              </TableHead>
+              <TableHead>
+                <Skeleton className="h-4 w-20" />
+              </TableHead>
+              <TableHead>
+                <Skeleton className="h-4 w-16" />
+              </TableHead>
+              <TableHead>
+                <Skeleton className="h-4 w-16" />
+              </TableHead>
+              <TableHead>
+                <Skeleton className="h-4 w-20" />
+              </TableHead>
+              <TableHead>
+                <Skeleton className="h-4 w-24" />
+              </TableHead>
+              <TableHead className="text-right">
+                <div className="flex justify-end">
+                  <Skeleton className="h-4 w-20" />
+                </div>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {Array.from({ length: 6 }).map((_, index) => (
+              <TableRow key={index}>
+                <TableCell>
+                  <Skeleton className="h-5 w-28" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-5 w-48 max-w-[14rem]" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-5 w-36 max-w-[10rem]" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-6 w-28 rounded-full" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-5 w-20" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-5 w-24" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-5 w-36" />
+                </TableCell>
+                <TableCell>
+                  <div className="flex justify-end gap-2">
+                    <Skeleton className="h-9 w-20" />
+                    <Skeleton className="h-9 w-24" />
+                    <Skeleton className="h-9 w-20" />
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </Card>
+  )
+}
+
 async function invalidateWorkflowQueries(queryClient: ReturnType<typeof useQueryClient>) {
   await queryClient.invalidateQueries({ queryKey: ['work-queue'] })
+  await queryClient.invalidateQueries({ queryKey: ['work-queue-nav-count'] })
   await queryClient.invalidateQueries({ queryKey: ['billing-requests'] })
   await queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] })
   await queryClient.invalidateQueries({ queryKey: ['invoices'] })

@@ -7,10 +7,11 @@ import { markInvoicePaid } from '../api/invoices'
 import { ActionDialog } from '../components/ActionDialog'
 import { AuditTimeline } from '../components/AuditTimeline'
 import { PageHeader } from '../components/PageHeader'
-import { EmptyState, ErrorState, LoadingBlock } from '../components/StateViews'
+import { EmptyState, ErrorState } from '../components/StateViews'
 import { StatusBadge } from '../components/StatusBadge'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
+import { Skeleton } from '../components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
 import { useAuth } from '../auth/useAuth'
 import { getApiErrorMessage } from '../lib/apiClient'
@@ -63,6 +64,8 @@ export function RequestDetailPage() {
       toast.success(message)
       setDialogMode(null)
       await queryClient.invalidateQueries({ queryKey: ['billing-request', id] })
+      await queryClient.invalidateQueries({ queryKey: ['work-queue'] })
+      await queryClient.invalidateQueries({ queryKey: ['work-queue-nav-count'] })
       await queryClient.invalidateQueries({ queryKey: ['billing-requests'] })
       await queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] })
       await queryClient.invalidateQueries({ queryKey: ['invoices'] })
@@ -71,12 +74,7 @@ export function RequestDetailPage() {
   })
 
   if (requestQuery.isLoading) {
-    return (
-      <>
-        <PageHeader title="Billing Request" description="Loading request detail." />
-        <LoadingBlock />
-      </>
-    )
+    return <RequestDetailSkeleton />
   }
 
   if (requestQuery.isError || !requestQuery.data) {
@@ -306,6 +304,175 @@ export function RequestDetailPage() {
         onConfirm={(value) => workflowMutation.mutate({ action: 'comment', value })}
       />
     </>
+  )
+}
+
+function RequestDetailSkeleton() {
+  return (
+    <>
+      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="w-full max-w-3xl">
+          <Skeleton className="h-8 w-full max-w-2xl" />
+          <Skeleton className="mt-2 h-5 w-80 max-w-full" />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Skeleton className="h-6 w-28 rounded-full" />
+          <Skeleton className="h-10 w-40" />
+        </div>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[1fr_360px]" aria-label="Request detail loading skeleton">
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-36" />
+            </CardHeader>
+            <CardContent className="grid gap-4 md:grid-cols-2">
+              {Array.from({ length: 8 }).map((_, index) => (
+                <InfoSkeleton key={index} />
+              ))}
+              <div className="md:col-span-2">
+                <Skeleton className="h-5 w-28" />
+                <Skeleton className="mt-1 h-5 w-full" />
+                <Skeleton className="mt-1 h-5 w-2/3" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-24" />
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>
+                        <Skeleton className="h-4 w-28" />
+                      </TableHead>
+                      <TableHead>
+                        <Skeleton className="h-4 w-20" />
+                      </TableHead>
+                      <TableHead>
+                        <Skeleton className="h-4 w-24" />
+                      </TableHead>
+                      <TableHead>
+                        <Skeleton className="h-4 w-24" />
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {Array.from({ length: 3 }).map((_, index) => (
+                      <TableRow key={index}>
+                        <TableCell>
+                          <Skeleton className="h-5 w-full max-w-md" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-5 w-16" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-5 w-24" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-5 w-24" />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="mt-4 flex justify-end">
+                <dl className="w-full max-w-sm space-y-2 text-sm">
+                  {Array.from({ length: 3 }).map((_, index) => (
+                    <SkeletonAmountRow key={index} strong={index === 2} />
+                  ))}
+                </dl>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-24" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {Array.from({ length: 2 }).map((_, index) => (
+                <div key={index} className="rounded-md border border-slate-200 p-4">
+                  <Skeleton className="h-5 w-full" />
+                  <Skeleton className="mt-1 h-5 w-4/5" />
+                  <Skeleton className="mt-2 h-4 w-56 max-w-full" />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-20" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <Skeleton key={index} className="h-10 w-full" />
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-20" />
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <InfoSkeleton />
+              <div className="flex items-center justify-between gap-3">
+                <Skeleton className="h-5 w-16" />
+                <Skeleton className="h-6 w-20 rounded-full" />
+              </div>
+              <SkeletonAmountRow strong />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-32" />
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div key={index} className="relative pl-6">
+                    <Skeleton className="absolute left-0 top-1.5 h-2.5 w-2.5 rounded-full" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-5 w-full" />
+                      <Skeleton className="h-4 w-3/4" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </>
+  )
+}
+
+function InfoSkeleton() {
+  return (
+    <div>
+      <Skeleton className="h-5 w-28" />
+      <Skeleton className="mt-1 h-5 w-40 max-w-full" />
+    </div>
+  )
+}
+
+function SkeletonAmountRow({ strong = false }: { strong?: boolean }) {
+  return (
+    <div className="flex justify-between gap-4">
+      <Skeleton className={strong ? 'h-5 w-20' : 'h-5 w-24'} />
+      <Skeleton className={strong ? 'h-5 w-28' : 'h-5 w-24'} />
+    </div>
   )
 }
 

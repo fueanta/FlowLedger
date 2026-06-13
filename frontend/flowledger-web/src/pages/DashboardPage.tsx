@@ -6,13 +6,15 @@ import { getDashboardSummary } from '../api/dashboard'
 import { AuditTimeline } from '../components/AuditTimeline'
 import { MetricCard } from '../components/MetricCard'
 import { PageHeader } from '../components/PageHeader'
-import { ErrorState, LoadingBlock } from '../components/StateViews'
+import { ErrorState } from '../components/StateViews'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Select } from '../components/ui/select'
+import { Skeleton } from '../components/ui/skeleton'
 import { formatMoney, formatStatus } from '../lib/format'
 
 const chartColors = ['#1e3a8a', '#ca8a04', '#047857', '#b91c1c', '#475569', '#0f172a']
 const periodOptions = [1, 3, 6, 12]
+const dashboardDescription = 'Track request volume, pending approvals, invoice value, aging, and recent workflow activity.'
 
 export function DashboardPage() {
   const [periodMonths, setPeriodMonths] = useState(1)
@@ -24,8 +26,8 @@ export function DashboardPage() {
   if (summaryQuery.isLoading) {
     return (
       <>
-        <PageHeader title="Dashboard" description="Operational health for billing approvals and invoices." />
-        <LoadingBlock />
+        <PageHeader title="Dashboard" description={dashboardDescription} />
+        <DashboardSkeleton />
       </>
     )
   }
@@ -33,7 +35,7 @@ export function DashboardPage() {
   if (summaryQuery.isError || !summaryQuery.data) {
     return (
       <>
-        <PageHeader title="Dashboard" description="Operational health for billing approvals and invoices." />
+        <PageHeader title="Dashboard" description={dashboardDescription} />
         <ErrorState message="Dashboard data could not be loaded." onRetry={() => void summaryQuery.refetch()} />
       </>
     )
@@ -43,12 +45,31 @@ export function DashboardPage() {
 
   return (
     <>
-      <PageHeader
-        title="Dashboard"
-        description="Track request volume, pending approvals, invoice value, aging, and recent workflow activity."
-      />
+      <PageHeader title="Dashboard" description={dashboardDescription} />
 
-      <section aria-labelledby="period-activity-title">
+      <section aria-labelledby="current-workload-title">
+        <div className="mb-4">
+          <h2 id="current-workload-title" className="text-lg font-semibold tracking-normal text-slate-950">
+            Current Workload
+          </h2>
+          <p className="mt-1 text-sm text-slate-600">Current workload is not filtered by period.</p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label="Current workload metrics">
+          <MetricCard label="Accounts review" value={String(summary.pendingAccountsReview)} hint="Current pending work" scope="Current" icon={Clock} />
+          <MetricCard label="Manager approvals" value={String(summary.pendingManagerApproval)} hint="Current high-value queue" scope="Current" icon={CheckCircle2} />
+          <MetricCard label="Rejected in period" value={String(summary.rejectedCount)} hint="Rejected in selected period" scope="Period" icon={FileText} />
+          <MetricCard
+            label="Avg approval hours"
+            value={String(summary.averageApprovalHours)}
+            hint="Approved in selected period"
+            scope="Period"
+            icon={TrendingUp}
+          />
+        </div>
+      </section>
+
+      <section className="mt-8" aria-labelledby="period-activity-title">
         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <h2 id="period-activity-title" className="text-lg font-semibold tracking-normal text-slate-950">
@@ -122,28 +143,6 @@ export function DashboardPage() {
         </Card>
       </section>
 
-      <section className="mt-8" aria-labelledby="current-workload-title">
-        <div className="mb-4">
-          <h2 id="current-workload-title" className="text-lg font-semibold tracking-normal text-slate-950">
-            Current Workload
-          </h2>
-          <p className="mt-1 text-sm text-slate-600">Current workload is not filtered by period.</p>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label="Current workload metrics">
-          <MetricCard label="Accounts review" value={String(summary.pendingAccountsReview)} hint="Current pending work" scope="Current" icon={Clock} />
-          <MetricCard label="Manager approvals" value={String(summary.pendingManagerApproval)} hint="Current high-value queue" scope="Current" icon={CheckCircle2} />
-          <MetricCard label="Rejected in period" value={String(summary.rejectedCount)} hint="Rejected in selected period" scope="Period" icon={FileText} />
-          <MetricCard
-            label="Avg approval hours"
-            value={String(summary.averageApprovalHours)}
-            hint="Approved in selected period"
-            scope="Period"
-            icon={TrendingUp}
-          />
-        </div>
-      </section>
-
       <section className="mt-6 grid gap-4 xl:grid-cols-3">
         <Card>
           <CardHeader>
@@ -174,6 +173,108 @@ export function DashboardPage() {
         </Card>
       </section>
     </>
+  )
+}
+
+function DashboardSkeleton() {
+  return (
+    <div aria-label="Dashboard loading skeleton">
+      <section aria-label="Current workload loading">
+        <div className="mb-4">
+          <Skeleton className="h-6 w-44" />
+          <Skeleton className="mt-2 h-5 w-72 max-w-full" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label="Current workload metrics loading">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <MetricCardSkeleton key={index} />
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-8" aria-label="Period activity loading">
+        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <Skeleton className="h-6 w-40" />
+            <Skeleton className="mt-2 h-5 w-80 max-w-full" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-5 w-12" />
+            <Skeleton className="h-10 w-36" />
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label="Period activity metrics loading">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <MetricCardSkeleton key={index} />
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-6 grid gap-4 xl:grid-cols-3" aria-label="Period charts loading">
+        <ChartCardSkeleton className="xl:col-span-1" />
+        <ChartCardSkeleton className="xl:col-span-2" />
+      </section>
+
+      <section className="mt-6 grid gap-4 xl:grid-cols-3" aria-label="Aging and recent activity loading">
+        <ChartCardSkeleton hasDescription />
+        <TimelineCardSkeleton />
+      </section>
+    </div>
+  )
+}
+
+function MetricCardSkeleton() {
+  return (
+    <Card>
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <Skeleton className="mb-3 h-6 w-28" />
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="mt-2 h-8 w-20" />
+            <Skeleton className="mt-1 h-4 w-36" />
+          </div>
+          <Skeleton className="h-10 w-10 rounded-md" />
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function ChartCardSkeleton({ className, hasDescription = false }: { className?: string; hasDescription?: boolean }) {
+  return (
+    <Card className={className}>
+      <CardHeader>
+        <Skeleton className="h-6 w-40" />
+        {hasDescription ? <Skeleton className="h-5 w-64 max-w-full" /> : null}
+      </CardHeader>
+      <CardContent>
+        <Skeleton className="h-72 w-full" />
+      </CardContent>
+    </Card>
+  )
+}
+
+function TimelineCardSkeleton() {
+  return (
+    <Card className="xl:col-span-2">
+      <CardHeader>
+        <Skeleton className="h-6 w-48" />
+        <Skeleton className="h-5 w-72 max-w-full" />
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="relative pl-6">
+              <Skeleton className="absolute left-0 top-1.5 h-2.5 w-2.5 rounded-full" />
+              <div className="space-y-2">
+                <Skeleton className="h-5 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 

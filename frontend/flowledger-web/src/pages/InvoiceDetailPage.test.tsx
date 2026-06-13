@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import MockAdapter from 'axios-mock-adapter'
 import { afterEach, describe, expect, it } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -28,6 +28,32 @@ const accountsAuth: AuthContextValue = {
   logout: () => undefined,
 }
 
+const invoiceDetail = {
+  id: '11111111-1111-1111-1111-111111111111',
+  invoiceNumber: 'INV-2026-0001',
+  status: 'Issued',
+  subtotalAmount: 52000,
+  vatPercentage: 15,
+  vatAmount: 7800,
+  totalAmount: 59800,
+  issuedAtUtc: '2026-06-01T00:00:00Z',
+  dueDays: 30,
+  dueAtUtc: '2026-07-01T00:00:00Z',
+  paidAtUtc: null,
+  customer: {
+    id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    name: 'BluePeak Systems',
+    contactEmail: 'billing@bluepeak.example',
+    billingAddress: 'House 10, Road 4, Dhaka',
+  },
+  billingRequest: {
+    id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+    requestNumber: 'BR-2026-0010',
+    title: 'BluePeak subscription billing',
+    status: 'InvoiceGenerated',
+  },
+}
+
 describe('InvoiceDetailPage', () => {
   afterEach(() => {
     mock?.restore()
@@ -36,31 +62,7 @@ describe('InvoiceDetailPage', () => {
 
   it('shows print, pdf download, and payment actions for issued invoices', async () => {
     mock = new MockAdapter(apiClient)
-    mock.onGet('/invoices/11111111-1111-1111-1111-111111111111').reply(200, {
-      id: '11111111-1111-1111-1111-111111111111',
-      invoiceNumber: 'INV-2026-0001',
-      status: 'Issued',
-      subtotalAmount: 52000,
-      vatPercentage: 15,
-      vatAmount: 7800,
-      totalAmount: 59800,
-      issuedAtUtc: '2026-06-01T00:00:00Z',
-      dueDays: 30,
-      dueAtUtc: '2026-07-01T00:00:00Z',
-      paidAtUtc: null,
-      customer: {
-        id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-        name: 'BluePeak Systems',
-        contactEmail: 'billing@bluepeak.example',
-        billingAddress: 'House 10, Road 4, Dhaka',
-      },
-      billingRequest: {
-        id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
-        requestNumber: 'BR-2026-0010',
-        title: 'BluePeak subscription billing',
-        status: 'InvoiceGenerated',
-      },
-    })
+    mock.onGet('/invoices/11111111-1111-1111-1111-111111111111').reply(200, invoiceDetail)
 
     render(
       <AuthContext.Provider value={accountsAuth}>
@@ -80,5 +82,33 @@ describe('InvoiceDetailPage', () => {
     expect(screen.getByRole('button', { name: 'Mark Paid' })).toBeInTheDocument()
     expect(screen.getByText('VAT rate')).toBeInTheDocument()
     expect(screen.getByText('Due period')).toBeInTheDocument()
+  })
+
+  it('renders an invoice-shaped skeleton while invoice detail loads', async () => {
+    mock = new MockAdapter(apiClient)
+    let resolveInvoice!: (value: [number, unknown]) => void
+    const invoiceResponse = new Promise<[number, unknown]>((resolve) => {
+      resolveInvoice = resolve
+    })
+    mock.onGet('/invoices/11111111-1111-1111-1111-111111111111').reply(() => invoiceResponse)
+
+    render(
+      <AuthContext.Provider value={accountsAuth}>
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <MemoryRouter initialEntries={['/app/invoices/11111111-1111-1111-1111-111111111111']}>
+            <Routes>
+              <Route path="/app/invoices/:id" element={<InvoiceDetailPage />} />
+            </Routes>
+          </MemoryRouter>
+        </QueryClientProvider>
+      </AuthContext.Provider>,
+    )
+
+    expect(screen.getByLabelText('Invoice detail loading skeleton')).toBeInTheDocument()
+    expect(screen.queryByText('Loading invoice detail.')).not.toBeInTheDocument()
+
+    await act(async () => {
+      resolveInvoice([200, invoiceDetail])
+    })
   })
 })

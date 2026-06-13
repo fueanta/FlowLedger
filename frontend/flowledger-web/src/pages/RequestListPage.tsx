@@ -48,6 +48,7 @@ export function RequestListPage() {
   const [untilDate, setUntilDate] = useState('')
   const [minAmount, setMinAmount] = useState('')
   const [maxAmount, setMaxAmount] = useState('')
+  const [approveTarget, setApproveTarget] = useState<BillingRequestListItem | null>(null)
   const [rejectTarget, setRejectTarget] = useState<BillingRequestListItem | null>(null)
 
   const listParams = {
@@ -75,9 +76,10 @@ export function RequestListPage() {
   })
 
   const approveMutation = useMutation({
-    mutationFn: (id: string) => approveBillingRequest(id),
+    mutationFn: ({ id, comment }: { id: string; comment?: string }) => approveBillingRequest(id, comment),
     onSuccess: async () => {
       toast.success('Request approved.')
+      setApproveTarget(null)
       await invalidateWorkflowQueries(queryClient)
     },
     onError: (error) => toast.error(getApiErrorMessage(error, 'Request approval failed.')),
@@ -133,7 +135,7 @@ export function RequestListPage() {
               </Link>
             </Button>
             {user && canApproveRequest(user.role, row.original.status) ? (
-              <Button size="sm" onClick={() => approveMutation.mutate(row.original.id)} disabled={approveMutation.isPending}>
+              <Button size="sm" onClick={() => setApproveTarget(row.original)} disabled={approveMutation.isPending}>
                 <ThumbsUp className="h-4 w-4" aria-hidden="true" />
                 Approve
               </Button>
@@ -291,6 +293,20 @@ export function RequestListPage() {
       />
 
       <ActionDialog
+        open={Boolean(approveTarget)}
+        title="Approve request"
+        description={approveTarget ? `Approve ${approveTarget.requestNumber}. Approval can generate an invoice or move high-value work to Manager approval.` : ''}
+        label="Comment"
+        confirmLabel="Approve"
+        busy={approveMutation.isPending}
+        onClose={() => setApproveTarget(null)}
+        onConfirm={(comment) => {
+          if (approveTarget) {
+            approveMutation.mutate({ id: approveTarget.id, comment })
+          }
+        }}
+      />
+      <ActionDialog
         open={Boolean(rejectTarget)}
         title="Reject request"
         description={rejectTarget ? `Reject ${rejectTarget.requestNumber}. Sales can revise and resubmit it.` : ''}
@@ -405,6 +421,8 @@ function defaultStatus(role: string | undefined): BillingRequestStatus | '' {
 }
 
 async function invalidateWorkflowQueries(queryClient: ReturnType<typeof useQueryClient>) {
+  await queryClient.invalidateQueries({ queryKey: ['work-queue'] })
+  await queryClient.invalidateQueries({ queryKey: ['work-queue-nav-count'] })
   await queryClient.invalidateQueries({ queryKey: ['billing-requests'] })
   await queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] })
   await queryClient.invalidateQueries({ queryKey: ['invoices'] })
