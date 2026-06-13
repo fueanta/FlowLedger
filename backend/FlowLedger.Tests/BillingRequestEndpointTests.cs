@@ -26,6 +26,16 @@ public class BillingRequestEndpointTests
     }
 
     [Fact]
+    public async Task List_WithoutToken_ReturnsUnauthorized()
+    {
+        using var client = _fixture.Factory.CreateClient();
+
+        var response = await client.GetAsync("/api/billing-requests");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
     public async Task Create_WithInvalidInput_ReturnsValidationProblem()
     {
         using var client = await _fixture.CreateAuthenticatedClientAsync(RoleName.Sales);
@@ -43,6 +53,18 @@ public class BillingRequestEndpointTests
         body.Should().Contain("CustomerId");
         body.Should().Contain("Title");
         body.Should().Contain("LineItems[0].Quantity");
+    }
+
+    [Fact]
+    public async Task Create_AsAccounts_ReturnsForbidden()
+    {
+        using var client = await _fixture.CreateAuthenticatedClientAsync(RoleName.Accounts);
+
+        var response = await client.PostAsJsonAsync(
+            "/api/billing-requests",
+            NewRequest(25000m, "Accounts should not create"));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     [Fact]
@@ -108,6 +130,20 @@ public class BillingRequestEndpointTests
         detail!.Status.Should().Be(BillingRequestStatus.ManagerApproval);
         detail.Invoice.Should().BeNull();
         detail.AssignedTo!.Role.Should().Be(RoleName.Manager);
+    }
+
+    [Fact]
+    public async Task Approve_AccountsReview_AsManager_ReturnsForbidden()
+    {
+        using var salesClient = await _fixture.CreateAuthenticatedClientAsync(RoleName.Sales);
+        var id = await CreateSubmittedRequestAsync(salesClient, 60000m);
+        using var managerClient = await _fixture.CreateAuthenticatedClientAsync(RoleName.Manager);
+
+        var response = await managerClient.PostAsJsonAsync(
+            $"/api/billing-requests/{id}/approve",
+            new ApproveBillingRequestDto("Manager cannot approve AccountsReview."));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     [Fact]

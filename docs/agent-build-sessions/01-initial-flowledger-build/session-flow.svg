@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000">
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#334155"/>
+    </marker>
+    <style>
+      .bg { fill: #f8fafc; }
+      .title { font: 700 38px Helvetica, Arial, sans-serif; fill: #0f172a; }
+      .subtitle { font: 400 20px Helvetica, Arial, sans-serif; fill: #475569; }
+      .lane { font: 700 20px Helvetica, Arial, sans-serif; fill: #334155; }
+      .box { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; rx: 12; }
+      .role { fill: #e0f2fe; stroke: #0284c7; }
+      .action { fill: #fefce8; stroke: #ca8a04; }
+      .system { fill: #ecfdf5; stroke: #16a34a; }
+      .reject { fill: #fef2f2; stroke: #dc2626; }
+      .decision { fill: #f5f3ff; stroke: #7c3aed; }
+      .label { font: 700 18px Helvetica, Arial, sans-serif; fill: #0f172a; }
+      .small { font: 400 15px Helvetica, Arial, sans-serif; fill: #475569; }
+      .line { stroke: #334155; stroke-width: 2.5; fill: none; marker-end: url(#arrow); }
+      .dash { stroke: #64748b; stroke-width: 2; stroke-dasharray: 8 8; fill: none; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1600" height="1000"/>
+  <text class="title" x="80" y="76">FlowLedger Session 01 Behaviour Flow</text>
+  <text class="subtitle" x="80" y="112">Built through Phase 10: auth, role-aware workflow, invoices, dashboard, audit timeline, tests, and docs.</text>
+
+  <text class="lane" x="90" y="190">Sales</text>
+  <text class="lane" x="430" y="190">Accounts</text>
+  <text class="lane" x="760" y="190">Manager</text>
+  <text class="lane" x="1085" y="190">System</text>
+
+  <rect class="box role" x="80" y="220" width="230" height="86"/>
+  <text class="label" x="110" y="254">Login</text>
+  <text class="small" x="110" y="280">JWT from seeded user</text>
+
+  <rect class="box action" x="80" y="355" width="230" height="96"/>
+  <text class="label" x="110" y="389">Create Draft</text>
+  <text class="small" x="110" y="415">Customer, title, line items</text>
+
+  <rect class="box action" x="80" y="500" width="230" height="96"/>
+  <text class="label" x="110" y="534">Submit Request</text>
+  <text class="small" x="110" y="560">Moves to AccountsReview</text>
+
+  <rect class="box action" x="410" y="500" width="250" height="96"/>
+  <text class="label" x="440" y="534">Accounts Review</text>
+  <text class="small" x="440" y="560">Approve, reject, comment</text>
+
+  <polygon class="decision" points="535,660 665,735 535,810 405,735"/>
+  <text class="label" x="474" y="728">Total &lt;=</text>
+  <text class="label" x="475" y="754">threshold?</text>
+
+  <rect class="box reject" x="410" y="855" width="250" height="82"/>
+  <text class="label" x="440" y="888">Reject</text>
+  <text class="small" x="440" y="914">Sales revise + resubmit</text>
+
+  <rect class="box action" x="735" y="660" width="250" height="96"/>
+  <text class="label" x="765" y="694">Manager Approval</text>
+  <text class="small" x="765" y="720">High-value requests</text>
+
+  <rect class="box reject" x="735" y="855" width="250" height="82"/>
+  <text class="label" x="765" y="888">Manager Reject</text>
+  <text class="small" x="765" y="914">Sales revise + resubmit</text>
+
+  <rect class="box system" x="1080" y="500" width="270" height="96"/>
+  <text class="label" x="1110" y="534">Invoice Generated</text>
+  <text class="small" x="1110" y="560">Issued invoice + audit log</text>
+
+  <rect class="box action" x="1080" y="660" width="270" height="96"/>
+  <text class="label" x="1110" y="694">Mark Invoice Paid</text>
+  <text class="small" x="1110" y="720">Accounts/Admin only</text>
+
+  <rect class="box system" x="1080" y="820" width="270" height="96"/>
+  <text class="label" x="1110" y="854">Dashboard + Audit</text>
+  <text class="small" x="1110" y="880">Metrics, charts, timeline</text>
+
+  <path class="line" d="M195 306 L195 350"/>
+  <path class="line" d="M195 451 L195 495"/>
+  <path class="line" d="M310 548 L405 548"/>
+  <path class="line" d="M535 596 L535 654"/>
+  <path class="line" d="M665 735 L730 708"/>
+  <path class="line" d="M985 708 L1075 548"/>
+  <path class="line" d="M535 660 L1075 548"/>
+  <path class="line" d="M1215 596 L1215 655"/>
+  <path class="line" d="M1215 756 L1215 815"/>
+  <path class="line" d="M535 810 L535 850"/>
+  <path class="line" d="M860 756 L860 850"/>
+  <path class="dash" d="M410 896 C235 896 195 740 195 601"/>
+  <path class="dash" d="M735 896 C340 920 195 755 195 601"/>
+
+  <text class="small" x="680" y="736">No: escalate</text>
+  <text class="small" x="735" y="520">Yes: generate invoice</text>
+  <text class="small" x="875" y="645">Approve</text>
+  <text class="small" x="1020" y="640">Approve</text>
+</svg>

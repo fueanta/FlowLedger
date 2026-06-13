@@ -55,7 +55,7 @@
 - Remote: `origin` points to `https://github.com/fueanta/FlowLedger.git`.
 - Branch: `main`.
 - Note: `.codex/skills/ui-ux-pro-max` is tracked so project UI/UX guidance survives clone. `.gitattributes` marks it as vendored for GitHub Linguist language stats.
-- Next phase from `docs/erp_workflow_build_plan.md`: Phase 2, Backend domain and database.
+- Next phase from `docs/agent-build-sessions/01-initial-flowledger-build/erp_workflow_build_plan.md`: Phase 2, Backend domain and database.
 
 ## Phase 2: Backend domain and database
 
@@ -217,6 +217,123 @@
 - Phase 3 is implemented and verified.
 - Per project instruction, changes are not committed yet. Commit only after explicit user signal.
 
+## Phase 9: Tests
+
+### Built
+
+- Added backend integration tests for the remaining explicit Phase 9 API cases:
+  - unauthenticated billing request list returns `401 Unauthorized`
+  - Accounts cannot create billing requests
+  - Manager cannot approve an `AccountsReview` request
+- Expanded backend service-level workflow tests:
+  - draft submit moves to `AccountsReview`
+  - under-threshold Accounts approval generates an invoice
+  - above-threshold Accounts approval moves to `ManagerApproval`
+  - Manager approval generates an invoice
+  - invalid resubmission throws a workflow conflict
+  - rejected request can be resubmitted by Sales
+- Added a frontend `StatusBadge` test because frontend tests already exist and the plan specifically names `StatusBadge` plus permission helpers when frontend tests are added.
+
+### Verification
+
+- Passed: backend restore/build through Docker SDK container.
+  - Command: `docker run --rm -v "$PWD:/src" -w /src/backend mcr.microsoft.com/dotnet/sdk:8.0-alpine sh -lc 'dotnet restore FlowLedger.sln && dotnet build FlowLedger.sln --no-restore'`.
+  - Result: build succeeded with 0 warnings and 0 errors.
+- Passed: full backend test suite.
+  - Command: `docker run --rm -e TESTCONTAINERS_RYUK_DISABLED=true -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -v "$PWD:/src" -v /var/run/docker.sock:/var/run/docker.sock -w /src/backend mcr.microsoft.com/dotnet/sdk:8.0-alpine sh -lc 'dotnet test FlowLedger.sln --logger "console;verbosity=minimal"'`.
+  - Result: 38 tests passed, 0 failed.
+- Passed: frontend tests.
+  - Command: `cd frontend/flowledger-web && npm test`.
+  - Result: 11 tests passed, 0 failed.
+- Passed: frontend lint.
+  - Command: `cd frontend/flowledger-web && npm run lint`.
+  - Result: ESLint passed with 0 errors.
+- Passed: frontend production build.
+  - Command: `cd frontend/flowledger-web && npm run build`.
+  - Result: TypeScript and Vite production build succeeded.
+  - Note: Vite still warns that one bundle chunk is over 500 kB because current assignment scope keeps pages and charts in one bundle.
+
+### Notes
+
+- Local `dotnet` is still unavailable in this shell. No global install was performed.
+- Backend test coverage now directly maps to the Phase 9 unit and integration test list.
+- Per project instruction, changes are not committed yet. Commit only after explicit user signal.
+
+## Phase 10: Documentation polish
+
+### Built
+
+- Added root `README.md` with:
+  - what was built
+  - selected option
+  - demo credential environment variable names
+  - Docker run instructions
+  - local development instructions
+  - key user flows
+  - architecture, backend, frontend, data model, and API overview
+  - testing commands
+  - known limitations
+  - future improvements
+  - AI tools and review process
+- Added `docs/design-note.md` with the planned problem, option, roles, workflow, architecture, backend/frontend design, data model, security, testing, tradeoffs, limitations, future improvements, and AI usage sections.
+- Added `docs/screenshots.md` with local screenshot targets and suggested review screenshots.
+- Removed the old prompt-for-user section from `docs/agent-build-sessions/01-initial-flowledger-build/erp_workflow_build_plan.md`, keeping project requirements and final checklist.
+- Updated stale `AGENTS.md` wording that previously said no local Git history existed.
+
+### Verification
+
+- Passed: Docker Compose build and runtime smoke.
+  - Command: `docker compose up --build -d`.
+  - Result: SQL Server became healthy, API started, and frontend started.
+  - Frontend route smoke:
+    - `http://localhost:5173/login` returned `200`.
+    - `http://localhost:5173/app/dashboard` returned `200`.
+  - API route smoke:
+    - `http://localhost:8080/health` returned `200`.
+    - `http://localhost:8080/swagger/index.html` returned `200`.
+  - API workflow smoke:
+    - Sales login succeeded.
+    - Accounts login succeeded.
+    - Manager login succeeded.
+    - Admin login succeeded.
+    - Sales created and submitted a low-value request.
+    - Accounts approved it and invoice was generated.
+    - Accounts marked the invoice paid.
+    - Sales created and submitted a high-value request.
+    - Accounts approved it and it moved to `ManagerApproval`.
+    - Manager approved it and invoice was generated.
+    - Sales created and submitted a request.
+    - Accounts rejected it.
+    - Sales revised it and resubmitted it to `AccountsReview`.
+    - Invalid dashboard period returned validation error.
+  - Smoke output: `final smoke ok {'low': 'InvoiceGenerated', 'paid': 'Paid', 'high_mid': 'ManagerApproval', 'high_done': 'InvoiceGenerated', 'resubmitted': 'AccountsReview', 'dashboard_total': 20}`.
+- Cleanup:
+  - Command: `docker compose down -v --remove-orphans`.
+  - Result: FlowLedger containers, network, and SQL Server volume were removed.
+
+### Notes
+
+- No Browser tool was available in this session, so screenshots were documented as manual review targets rather than committed image files.
+- No secrets were added to git-tracked files. README points to `.env.example` placeholders and environment variable names only.
+- Per project instruction, changes are not committed yet. Commit only after explicit user signal.
+
+## README AI skills note
+
+### Built
+
+- Updated the README AI tools section to list the project skills used during the build:
+  - `caveman`
+  - `ui-ux-pro-max`
+  - `caveman-commit`
+
+### Verification
+
+- Docs-only change. No build or test run was needed.
+
+### Notes
+
+- Per project instruction, changes are not committed yet. Commit only after explicit user signal.
+
 ### Security hardening after review
 
 - Reworked auth so app credentials are no longer hardcoded.
@@ -233,7 +350,7 @@
   - Unit and integration auth tests now use a test-only user row: `auth-test-sales@flowledger.local`.
   - Tests create the test user's password hash in the test database.
 - Added `docs/backlog.md` with regular-priority item for admin-driven active session revocation.
-- Updated `docs/erp_workflow_build_plan.md`.
+- Updated `docs/agent-build-sessions/01-initial-flowledger-build/erp_workflow_build_plan.md`.
   - Removed plaintext demo password references.
   - Added DB-backed password hash guidance.
   - Added UI-phase instruction: expired JWT causing `401` must clear auth state, redirect to `/login`, and ask user to log in again.
@@ -709,4 +826,41 @@
 - The edit UI uses `/app/requests/:id/edit` to support the planned rejected-request revision flow. Backend already supported update and resubmit.
 - No browser automation dependency was added. Runtime UI verification used Vite/Docker build, frontend route responses, TypeScript, lint, tests, and API workflow smoke.
 - Local `dotnet` is still unavailable in this shell. No global install was performed.
+- Per project instruction, changes are not committed yet. Commit only after explicit user signal.
+
+## Session 01 sign-off documentation refactor
+
+### Built
+
+- Moved session-specific build artifacts under `docs/agent-build-sessions/01-initial-flowledger-build/`.
+  - `erp_workflow_build_plan.md`
+  - `implementation-log.md`
+- Added `session-flow.svg` and generated `session-flow.png` in the same session directory to show the current software behavior and user flow after this session.
+- Updated project references from the former root-level plan/log paths to the new session directory.
+- Updated `README.md` with an Agent build sessions section and embedded the Session 01 behaviour flow image.
+- Expanded the README AI section with the session hygiene technique:
+  - numbered build-session directories
+  - per-session plan and implementation log
+  - sign-off review of the latest log changes
+  - README updates when project behaviour/setup changes
+  - generated behaviour-flow image for each session
+- Updated `AGENTS.md` so future agents:
+  - use numbered session directories
+  - read the active implementation log from the bottom first
+  - review the log at sign-off for README updates
+  - generate or refresh `session-flow.png` after each signed-off session
+
+### Verification
+
+- Passed: SVG to PNG conversion.
+  - Command: `sips -s format png docs/agent-build-sessions/01-initial-flowledger-build/session-flow.svg --out docs/agent-build-sessions/01-initial-flowledger-build/session-flow.png`.
+  - Result: PNG generated successfully.
+- Passed: visual inspection of `session-flow.png`.
+  - Result: flowchart shows Sales, Accounts, Manager, and System lanes with submit, approval, rejection, invoice, payment, dashboard, and audit behavior.
+- Passed: old prompt-for-user section remains removed from the build plan.
+- Docs-only/session-organization change. No app build or test run was needed.
+
+### Notes
+
+- This sign-off entry is intentionally at the bottom of the log so the next session can read bottom-first and understand the latest project state quickly.
 - Per project instruction, changes are not committed yet. Commit only after explicit user signal.

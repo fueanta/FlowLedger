@@ -2661,39 +2661,7 @@ Do not build nice-to-have features until the core workflow is fully working.
 
 ---
 
-# 33. Exact Agent Prompt to Use
-
-Use this prompt with your AI agent after creating the repo:
-
-```text
-You are building FlowLedger, an ERP workflow module take-home assignment.
-Follow the project plan in docs/erp_workflow_build_plan.md exactly.
-Do not over-engineer.
-Use .NET 8 ASP.NET Core Web API, EF Core, SQL Server, React Vite TypeScript, Tailwind, shadcn/ui, TanStack Query, Axios, Recharts.
-Implement one phase at a time.
-After each phase, make sure the app builds and runs.
-Keep the code clean, simple, readable, and aligned with SOLID, KISS, DRY, and YAGNI.
-Do not add features outside the plan unless explicitly asked.
-Start with Phase 1 only.
-```
-
-Then ask the agent phase by phase:
-
-```text
-Implement Phase 1 only. Stop after verifying Docker Compose starts the API, frontend, and SQL Server.
-```
-
-Then:
-
-```text
-Implement Phase 2 only. Add entities, DbContext, EF configurations, seed data, migration, and database initialization. Stop after it builds.
-```
-
-Continue phase by phase.
-
----
-
-# 34. Final Submission Checklist
+# 33. Final Submission Checklist
 
 Before submission, verify:
 
@@ -2740,7 +2708,7 @@ docker compose up --build
 
 ---
 
-# 35. Final Advice
+# 34. Final Advice
 
 The goal is not to build a huge ERP. The goal is to show that you can take an ambiguous business requirement, scope it responsibly, model it cleanly, implement a working full-stack module, protect actions by role, test key behavior, and document tradeoffs.
 
