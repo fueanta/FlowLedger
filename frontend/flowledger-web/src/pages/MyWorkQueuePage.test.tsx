@@ -46,10 +46,24 @@ const queuedRequest: BillingRequestListItem = {
   updatedAtUtc: '2026-06-13T08:00:00Z',
 }
 
+const queuedInvoiceRequest: BillingRequestListItem = {
+  ...queuedRequest,
+  id: 'request-2',
+  requestNumber: 'BR-2026-0012',
+  status: 'InvoiceGenerated',
+  invoice: {
+    id: 'invoice-1',
+    invoiceNumber: 'INV-2026-0001',
+    status: 'Issued',
+    totalAmount: 57500,
+  },
+}
+
 describe('MyWorkQueuePage', () => {
   afterEach(() => {
     mock?.restore()
     mock = undefined
+    vi.restoreAllMocks()
   })
 
   it('renders a table-shaped skeleton while the work queue loads', async () => {
@@ -137,6 +151,20 @@ describe('MyWorkQueuePage', () => {
 
     expect(await screen.findAllByLabelText('2 work items need attention')).toHaveLength(2)
     expect(navCountRequests).toBeGreaterThanOrEqual(2)
+  })
+
+  it('marks issued invoice work as paid after confirmation', async () => {
+    mock = new MockAdapter(apiClient)
+    mock.onGet('/work-queue').reply(200, { items: [queuedInvoiceRequest], page: 1, pageSize: 50, totalCount: 1 })
+    mock.onPost('/invoices/invoice-1/mark-paid').reply(204)
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    renderWorkQueuePage()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Mark Paid' }))
+
+    expect(confirmSpy).toHaveBeenCalledWith('Mark invoice INV-2026-0001 as paid?')
+    expect(mock.history.post).toHaveLength(1)
   })
 })
 

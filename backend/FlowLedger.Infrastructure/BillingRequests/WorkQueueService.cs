@@ -24,6 +24,7 @@ public sealed class WorkQueueService : IWorkQueueService
         var pageSize = PagingQueryGuard.PageSize(query.PageSize);
         var requests = _dbContext.BillingRequests.AsNoTracking()
             .Include(x => x.Customer)
+            .Include(x => x.Invoice)
             .Where(x => x.AssignedQueue != WorkflowQueue.None)
             .AsQueryable();
 
@@ -53,7 +54,8 @@ public sealed class WorkQueueService : IWorkQueueService
                 x.LastWorkflowActionAtUtc,
                 x.TotalAmount,
                 x.CreatedAtUtc,
-                x.UpdatedAtUtc))
+                x.UpdatedAtUtc,
+                x.Invoice == null ? null : new BillingRequestInvoiceDto(x.Invoice.Id, x.Invoice.InvoiceNumber, x.Invoice.Status, x.Invoice.TotalAmount)))
             .ToListAsync(cancellationToken);
 
         return new PagedResult<BillingRequestListItemDto>(items, page, pageSize, totalCount);

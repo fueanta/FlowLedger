@@ -104,6 +104,20 @@ public class BillingRequestEndpointTests
     }
 
     [Fact]
+    public async Task GetById_AsDifferentSalesUser_ReturnsForbidden()
+    {
+        using var salesClient = await _fixture.CreateAuthenticatedClientAsync(RoleName.Sales);
+        var id = await CreateRequestAsync(salesClient, 40000m);
+        using var otherSalesClient = await _fixture.CreateAuthenticatedClientAsync(TestAuthSeedData.TestSalesEmail, TestAuthSeedData.TestSalesPassword);
+
+        var response = await otherSalesClient.GetAsync($"/api/billing-requests/{id}");
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        body.Should().Contain("You do not have access to this billing request.");
+    }
+
+    [Fact]
     public async Task WorkQueue_AsAccounts_ReturnsAccountsQueueOnly()
     {
         using var salesClient = await _fixture.CreateAuthenticatedClientAsync(RoleName.Sales);
@@ -150,9 +164,9 @@ public class BillingRequestEndpointTests
         detail!.Status.Should().Be(BillingRequestStatus.InvoiceGenerated);
         detail.Invoice.Should().NotBeNull();
         detail.Invoice!.Status.Should().Be(InvoiceStatus.Issued);
-        detail.AssignedQueue.Should().Be(WorkflowQueue.None);
-        detail.AssignedAtUtc.Should().BeNull();
-        detail.AssignedTo.Should().BeNull();
+        detail.AssignedQueue.Should().Be(WorkflowQueue.Accounts);
+        detail.AssignedAtUtc.Should().NotBeNull();
+        detail.AssignedTo!.Role.Should().Be(RoleName.Accounts);
         detail.AuditLogs.Should().Contain(x => x.ActionType == AuditActionType.Approved);
         detail.AuditLogs.Should().Contain(x => x.ActionType == AuditActionType.InvoiceGenerated);
         detail.Comments.Should().Contain(x => x.Body == "Approved by accounts.");
@@ -209,8 +223,8 @@ public class BillingRequestEndpointTests
         detail!.Status.Should().Be(BillingRequestStatus.InvoiceGenerated);
         detail.Invoice.Should().NotBeNull();
         detail.Invoice!.TotalAmount.Should().Be(149500m);
-        detail.AssignedQueue.Should().Be(WorkflowQueue.None);
-        detail.AssignedTo.Should().BeNull();
+        detail.AssignedQueue.Should().Be(WorkflowQueue.Accounts);
+        detail.AssignedTo!.Role.Should().Be(RoleName.Accounts);
     }
 
     [Fact]

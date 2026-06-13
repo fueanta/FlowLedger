@@ -104,7 +104,15 @@ export function InvoiceListPage() {
               </Link>
             </Button>
             {user && canMarkInvoicePaid(user.role, row.original.status) ? (
-              <Button size="sm" onClick={() => markPaidMutation.mutate(row.original.id)} disabled={markPaidMutation.isPending}>
+              <Button
+                size="sm"
+                onClick={() => {
+                  if (window.confirm(`Mark invoice ${row.original.invoiceNumber} as paid?`)) {
+                    markPaidMutation.mutate(row.original.id)
+                  }
+                }}
+                disabled={markPaidMutation.isPending}
+              >
                 Mark Paid
               </Button>
             ) : null}

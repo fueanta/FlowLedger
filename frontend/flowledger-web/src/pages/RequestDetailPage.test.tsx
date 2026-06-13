@@ -107,4 +107,29 @@ describe('RequestDetailPage', () => {
       resolveRequest([200, requestDetail])
     })
   })
+
+  it('shows an inaccessible state for forbidden billing request detail', async () => {
+    mock = new MockAdapter(apiClient)
+    mock.onGet('/billing-requests/22222222-2222-2222-2222-222222222222').reply(403, { message: 'You do not have access to this billing request.' })
+
+    renderRequestDetailPage()
+
+    expect(await screen.findByText('Request not accessible')).toBeInTheDocument()
+    expect(screen.getByText('You do not have access to this billing request.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
+  })
 })
+
+function renderRequestDetailPage() {
+  render(
+    <MemoryRouter initialEntries={['/app/requests/22222222-2222-2222-2222-222222222222']}>
+      <AuthContext.Provider value={authValue}>
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <Routes>
+            <Route path="/app/requests/:id" element={<RequestDetailPage />} />
+          </Routes>
+        </QueryClientProvider>
+      </AuthContext.Provider>
+    </MemoryRouter>,
+  )
+}

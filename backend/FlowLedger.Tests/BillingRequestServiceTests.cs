@@ -111,6 +111,19 @@ public class BillingRequestServiceTests
     }
 
     [Fact]
+    public async Task GetByIdAsync_AsDifferentSalesUser_ThrowsUnauthorizedAccessException()
+    {
+        using var fixture = new BillingRequestServiceFixture();
+        var id = await fixture.CreateDraftRequestAsync();
+        var otherSalesUser = new CurrentUser(Guid.NewGuid(), "other-sales@flowledger.local", "Other Sales", RoleName.Sales);
+
+        var act = () => fixture.Service.GetByIdAsync(id, otherSalesUser, CancellationToken.None);
+
+        await act.Should().ThrowAsync<UnauthorizedAccessException>()
+            .WithMessage("You do not have access to this billing request.");
+    }
+
+    [Fact]
     public async Task ApproveAsync_UnderThreshold_AsAccounts_GeneratesInvoice()
     {
         using var fixture = new BillingRequestServiceFixture();
@@ -127,8 +140,8 @@ public class BillingRequestServiceTests
             .Include(x => x.AuditLogs)
             .SingleAsync(x => x.Id == id);
         request.Status.Should().Be(BillingRequestStatus.InvoiceGenerated);
-        request.AssignedQueue.Should().Be(WorkflowQueue.None);
-        request.AssignedToUserId.Should().BeNull();
+        request.AssignedQueue.Should().Be(WorkflowQueue.Accounts);
+        request.AssignedToUserId.Should().Be(FlowLedgerSeedData.AccountsUserId);
         request.Invoice.Should().NotBeNull();
         request.Invoice!.Status.Should().Be(InvoiceStatus.Issued);
         request.AuditLogs.Should().Contain(x => x.ActionType == AuditActionType.InvoiceGenerated);
@@ -171,7 +184,7 @@ public class BillingRequestServiceTests
             .Include(x => x.Invoice)
             .SingleAsync(x => x.Id == id);
         request.Status.Should().Be(BillingRequestStatus.InvoiceGenerated);
-        request.AssignedQueue.Should().Be(WorkflowQueue.None);
+        request.AssignedQueue.Should().Be(WorkflowQueue.Accounts);
         request.AccountsReviewedByUserId.Should().Be(FlowLedgerSeedData.AccountsUserId);
         request.ManagerReviewedByUserId.Should().BeNull();
         request.Invoice.Should().NotBeNull();
@@ -214,7 +227,7 @@ public class BillingRequestServiceTests
             .Include(x => x.Invoice)
             .SingleAsync(x => x.Id == id);
         request.Status.Should().Be(BillingRequestStatus.InvoiceGenerated);
-        request.AssignedQueue.Should().Be(WorkflowQueue.None);
+        request.AssignedQueue.Should().Be(WorkflowQueue.Accounts);
         request.ManagerReviewedByUserId.Should().Be(FlowLedgerSeedData.ManagerUserId);
         request.Invoice.Should().NotBeNull();
     }

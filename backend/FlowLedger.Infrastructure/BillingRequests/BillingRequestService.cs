@@ -56,7 +56,8 @@ public sealed class BillingRequestService : IBillingRequestService
                 x.LastWorkflowActionAtUtc,
                 x.TotalAmount,
                 x.CreatedAtUtc,
-                x.UpdatedAtUtc))
+                x.UpdatedAtUtc,
+                x.Invoice == null ? null : new BillingRequestInvoiceDto(x.Invoice.Id, x.Invoice.InvoiceNumber, x.Invoice.Status, x.Invoice.TotalAmount)))
             .ToListAsync(cancellationToken);
 
         return new PagedResult<BillingRequestListItemDto>(items, page, pageSize, totalCount);
@@ -77,7 +78,8 @@ public sealed class BillingRequestService : IBillingRequestService
                 x.LastWorkflowActionAtUtc,
                 x.TotalAmount,
                 x.CreatedAtUtc,
-                x.UpdatedAtUtc))
+                x.UpdatedAtUtc,
+                x.Invoice == null ? null : new BillingRequestInvoiceDto(x.Invoice.Id, x.Invoice.InvoiceNumber, x.Invoice.Status, x.Invoice.TotalAmount)))
             .ToListAsync(cancellationToken);
 
         return _csvExportService.Export(
@@ -102,7 +104,12 @@ public sealed class BillingRequestService : IBillingRequestService
 
         if (request is null || !CanView(request, currentUser))
         {
-            throw new KeyNotFoundException("Billing request was not found.");
+            if (request is null)
+            {
+                throw new KeyNotFoundException("Billing request was not found.");
+            }
+
+            throw new UnauthorizedAccessException("You do not have access to this billing request.");
         }
 
         return request.ToDetailDto(GetAvailableActions(request, currentUser));
@@ -232,10 +239,10 @@ public sealed class BillingRequestService : IBillingRequestService
                 billingRequest.UpdatedAtUtc = now;
                 billingRequest.AccountsReviewedByUserId = currentUser.Id;
                 billingRequest.LastWorkflowActionAtUtc = now;
-                ClearAssignment(billingRequest);
                 AddAuditLog(billingRequest, currentUser, AuditActionType.Approved, "Accounts approved billing request.", now, BillingRequestStatus.AccountsReview.ToString(), BillingRequestStatus.InvoiceGenerated.ToString());
                 AddOptionalComment(billingRequest.Id, currentUser.Id, request.Comment, now);
                 await CreateInvoiceAsync(billingRequest, currentUser, now, settings, cancellationToken);
+                await AssignInvoicePaymentToAccountsAsync(billingRequest, now, cancellationToken);
             }
             else
             {
@@ -260,10 +267,10 @@ public sealed class BillingRequestService : IBillingRequestService
             billingRequest.UpdatedAtUtc = now;
             billingRequest.ManagerReviewedByUserId = currentUser.Id;
             billingRequest.LastWorkflowActionAtUtc = now;
-            ClearAssignment(billingRequest);
             AddAuditLog(billingRequest, currentUser, AuditActionType.Approved, "Management approved billing request.", now, BillingRequestStatus.ManagerApproval.ToString(), BillingRequestStatus.InvoiceGenerated.ToString());
             AddOptionalComment(billingRequest.Id, currentUser.Id, request.Comment, now);
             await CreateInvoiceAsync(billingRequest, currentUser, now, settings, cancellationToken);
+            await AssignInvoicePaymentToAccountsAsync(billingRequest, now, cancellationToken);
         }
         else
         {
@@ -354,6 +361,7 @@ public sealed class BillingRequestService : IBillingRequestService
     {
         var requests = ApplyVisibility(_dbContext.BillingRequests.AsNoTracking(), currentUser)
             .Include(x => x.Customer)
+            .Include(x => x.Invoice)
             .AsQueryable();
 
         if (query.Status is not null)
@@ -545,6 +553,15 @@ public sealed class BillingRequestService : IBillingRequestService
         AddAuditLog(billingRequest, currentUser, AuditActionType.InvoiceGenerated, "Invoice generated.", now);
     }
 
+    private async Task AssignInvoicePaymentToAccountsAsync(BillingRequest billingRequest, DateTime now, CancellationToken cancellationToken)
+    {
+        var accountsUser = await GetFirstActiveUserAsync(RoleName.Accounts, cancellationToken);
+        billingRequest.AssignedToUserId = accountsUser.Id;
+        billingRequest.AssignedQueue = WorkflowQueue.Accounts;
+        billingRequest.AssignedAtUtc = now;
+        AddAuditLog(billingRequest, accountsUser, AuditActionType.Assigned, "Invoice payment assigned to Accounts.", now);
+    }
+
     private async Task<string> NextRequestNumberAsync(CancellationToken cancellationToken)
     {
         var prefix = $"BR-{DateTime.UtcNow.Year}-";
@@ -626,13 +643,6 @@ public sealed class BillingRequestService : IBillingRequestService
         billingRequest.AssignedToUserId = billingRequest.CreatedByUserId;
         billingRequest.AssignedQueue = WorkflowQueue.Sales;
         billingRequest.AssignedAtUtc = now;
-    }
-
-    private static void ClearAssignment(BillingRequest billingRequest)
-    {
-        billingRequest.AssignedToUserId = null;
-        billingRequest.AssignedQueue = WorkflowQueue.None;
-        billingRequest.AssignedAtUtc = null;
     }
 
     private void AddAuditLog(

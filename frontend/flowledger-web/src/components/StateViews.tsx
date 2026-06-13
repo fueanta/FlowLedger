@@ -13,13 +13,13 @@ export function LoadingBlock() {
   )
 }
 
-export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+export function ErrorState({ title = 'Something went wrong', message, onRetry }: { title?: string; message: string; onRetry?: () => void }) {
   return (
     <Card>
       <CardContent className="flex flex-col items-start gap-3 p-6">
         <AlertCircle className="h-6 w-6 text-red-700" aria-hidden="true" />
         <div>
-          <p className="font-semibold text-slate-950">Something went wrong</p>
+          <p className="font-semibold text-slate-950">{title}</p>
           <p className="mt-1 text-sm text-slate-600">{message}</p>
         </div>
         {onRetry ? (

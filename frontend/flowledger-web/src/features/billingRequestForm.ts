@@ -15,9 +15,9 @@ export const billingRequestFormSchema = z.object({
 
 export type BillingRequestFormValues = z.infer<typeof billingRequestFormSchema>
 
-export function calculateRequestTotals(lineItems: BillingRequestFormValues['lineItems']) {
+export function calculateRequestTotals(lineItems: BillingRequestFormValues['lineItems'], vatPercentage: number) {
   const subtotal = lineItems.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.unitPrice || 0), 0)
-  const vat = Math.round(subtotal * 0.15 * 100) / 100
+  const vat = Math.round(subtotal * (vatPercentage / 100) * 100) / 100
 
   return {
     subtotal: Math.round(subtotal * 100) / 100,

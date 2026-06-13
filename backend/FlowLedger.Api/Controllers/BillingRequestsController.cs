@@ -90,6 +90,10 @@ public sealed class BillingRequestsController : ControllerBase
         {
             return NotFound(new { message = "Billing request was not found." });
         }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
+        }
     }
 
     [HttpPost]

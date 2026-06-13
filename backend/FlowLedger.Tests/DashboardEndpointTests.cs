@@ -123,8 +123,10 @@ public class DashboardEndpointTests
                 x.AuditLogs.Any(log => log.ActionType == AuditActionType.Rejected));
         requests.Where(x => x.Status == BillingRequestStatus.InvoiceGenerated)
             .Should().OnlyContain(x =>
-                x.AssignedQueue == WorkflowQueue.None &&
-                x.AuditLogs.Any(log => log.ActionType == AuditActionType.InvoiceGenerated));
+                x.AssignedQueue == WorkflowQueue.Accounts &&
+                x.AssignedAtUtc != null &&
+                x.AuditLogs.Any(log => log.ActionType == AuditActionType.InvoiceGenerated) &&
+                x.AuditLogs.Any(log => log.ActionType == AuditActionType.Assigned));
         requests.Where(x => x.Status == BillingRequestStatus.Paid)
             .Should().OnlyContain(x =>
                 x.AssignedQueue == WorkflowQueue.None &&

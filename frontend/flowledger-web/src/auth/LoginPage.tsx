@@ -32,14 +32,14 @@ export function LoginPage() {
   })
 
   if (isAuthenticated) {
-    return <Navigate to={state?.from ?? '/app/dashboard'} replace />
+    return <Navigate to="/app/dashboard" replace />
   }
 
   async function onSubmit(values: LoginFormValues) {
     setServerError(null)
     try {
       await login(values)
-      navigate(state?.from ?? '/app/dashboard', { replace: true })
+      navigate('/app/dashboard', { replace: true })
     } catch (error) {
       setServerError(error instanceof Error ? error.message : 'Login failed.')
     }

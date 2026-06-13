@@ -30,6 +30,19 @@ const auth: AuthContextValue = {
   logout: () => undefined,
 }
 
+const adminAuth: AuthContextValue = {
+  ...auth,
+  user: auth.user
+    ? {
+        ...auth.user,
+        id: '44444444-4444-4444-4444-444444444444',
+        fullName: 'Nadia Admin',
+        email: 'admin@flowledger.local',
+        role: 'Admin',
+      }
+    : null,
+}
+
 describe('AppLayout work queue badge', () => {
   afterEach(() => {
     mock?.restore()
@@ -81,6 +94,34 @@ describe('AppLayout work queue badge', () => {
   })
 })
 
+describe('AppLayout enrollment badge', () => {
+  afterEach(() => {
+    mock?.restore()
+    mock = undefined
+  })
+
+  it('renders the pending enrollment badge for admins', async () => {
+    mock = new MockAdapter(apiClient)
+    mock.onGet('/work-queue').reply(200, { items: [], page: 1, pageSize: 1, totalCount: 0 })
+    mock.onGet('/enrollment-requests').reply(200, { items: [], page: 1, pageSize: 1, totalCount: 6 })
+
+    renderAppLayout(adminAuth)
+
+    expect(await screen.findAllByLabelText('6 enrollment requests need review')).toHaveLength(2)
+  })
+
+  it('keeps enrollment badge hidden when no requests are pending', async () => {
+    mock = new MockAdapter(apiClient)
+    mock.onGet('/work-queue').reply(200, { items: [], page: 1, pageSize: 1, totalCount: 0 })
+    mock.onGet('/enrollment-requests').reply(200, { items: [], page: 1, pageSize: 1, totalCount: 0 })
+
+    renderAppLayout(adminAuth)
+
+    await waitFor(() => expect(mock!.history.get.some((request) => request.url === '/enrollment-requests')).toBe(true))
+    expect(screen.queryByLabelText(/enrollment requests need review/)).not.toBeInTheDocument()
+  })
+})
+
 describe('RouteTransition', () => {
   it('wraps route content with the transition class', () => {
     render(
@@ -95,7 +136,7 @@ describe('RouteTransition', () => {
   })
 })
 
-function renderAppLayout() {
+function renderAppLayout(authValue = auth) {
   return renderWithProviders(
     <MemoryRouter initialEntries={['/app/dashboard']}>
       <Routes>
@@ -105,12 +146,13 @@ function renderAppLayout() {
         </Route>
       </Routes>
     </MemoryRouter>,
+    authValue,
   )
 }
 
-function renderWithProviders(children: ReactNode) {
+function renderWithProviders(children: ReactNode, authValue = auth) {
   return render(
-    <AuthContext.Provider value={auth}>
+    <AuthContext.Provider value={authValue}>
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{children}</QueryClientProvider>
     </AuthContext.Provider>,
   )

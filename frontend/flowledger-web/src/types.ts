@@ -131,6 +131,7 @@ export type BillingRequestListItem = {
   totalAmount: number
   createdAtUtc: string
   updatedAtUtc: string
+  invoice?: BillingRequestInvoice | null
 }
 
 export type UserSummary = {

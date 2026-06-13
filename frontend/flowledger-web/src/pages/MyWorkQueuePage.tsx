@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Eye, Search, ThumbsUp, XCircle } from 'lucide-react'
+import { Eye, ReceiptText, Search, ThumbsUp, XCircle } from 'lucide-react'
 import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { approveBillingRequest, getWorkQueue, rejectBillingRequest } from '../api/billingRequests'
+import { markInvoicePaid } from '../api/invoices'
 import { ActionDialog } from '../components/ActionDialog'
 import { PageHeader } from '../components/PageHeader'
 import { EmptyState, ErrorState } from '../components/StateViews'
@@ -18,7 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { useAuth } from '../auth/useAuth'
 import { getApiErrorMessage } from '../lib/apiClient'
 import { formatDateTime, formatMoney } from '../lib/format'
-import { canApproveRequest, canRejectRequest } from '../lib/permissions'
+import { canApproveRequest, canMarkInvoicePaid, canRejectRequest } from '../lib/permissions'
 import type { BillingRequestListItem, WorkflowQueue } from '../types'
 
 const queueOptions: (WorkflowQueue | '')[] = ['', 'Sales', 'Accounts', 'Manager']
@@ -64,6 +65,15 @@ export function MyWorkQueuePage() {
     onError: (error) => toast.error(getApiErrorMessage(error, 'Request rejection failed.')),
   })
 
+  const markPaidMutation = useMutation({
+    mutationFn: markInvoicePaid,
+    onSuccess: async () => {
+      toast.success('Invoice marked as paid.')
+      await invalidateWorkflowQueries(queryClient)
+    },
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Invoice could not be marked as paid.')),
+  })
+
   const items = useMemo(() => queueQuery.data?.items ?? [], [queueQuery.data?.items])
 
   useEffect(() => {
@@ -74,7 +84,7 @@ export function MyWorkQueuePage() {
 
   return (
     <>
-      <PageHeader title="My Work Queue" description="Requests currently waiting for your role or team." />
+      <PageHeader title="My Work Queue" description="Requests and issued invoices currently waiting for your role or team." />
 
       <Card className="mb-4">
         <CardContent className="grid gap-4 p-4 md:grid-cols-3">
@@ -103,7 +113,7 @@ export function MyWorkQueuePage() {
       {queueQuery.isLoading ? <WorkQueueTableSkeleton /> : null}
       {queueQuery.isError ? <ErrorState message="Work queue could not be loaded." onRetry={() => void queueQuery.refetch()} /> : null}
       {!queueQuery.isLoading && !queueQuery.isError && items.length === 0 ? (
-        <EmptyState title="No queued work" message="There are no active requests waiting for this queue." />
+        <EmptyState title="No queued work" message="There are no active requests or invoices waiting for this queue." />
       ) : null}
       {items.length > 0 ? (
         <Card>
@@ -151,6 +161,22 @@ export function MyWorkQueuePage() {
                           <Button variant="destructive" size="sm" onClick={() => setRejectTarget(request)}>
                             <XCircle className="h-4 w-4" aria-hidden="true" />
                             Reject
+                          </Button>
+                        ) : null}
+                        {user && request.invoice && canMarkInvoicePaid(user.role, request.invoice.status) ? (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => {
+                              const invoice = request.invoice
+                              if (invoice && window.confirm(`Mark invoice ${invoice.invoiceNumber} as paid?`)) {
+                                markPaidMutation.mutate(invoice.id)
+                              }
+                            }}
+                            disabled={markPaidMutation.isPending}
+                          >
+                            <ReceiptText className="h-4 w-4" aria-hidden="true" />
+                            Mark Paid
                           </Button>
                         ) : null}
                       </div>

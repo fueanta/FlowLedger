@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Skeleton } from '../components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
 import { useAuth } from '../auth/useAuth'
-import { getApiErrorMessage } from '../lib/apiClient'
+import { getApiErrorMessage, getApiStatusCode } from '../lib/apiClient'
 import { formatDateTime, formatMoney } from '../lib/format'
 import { canMarkInvoicePaid } from '../lib/permissions'
 import { useState } from 'react'
@@ -78,10 +78,16 @@ export function RequestDetailPage() {
   }
 
   if (requestQuery.isError || !requestQuery.data) {
+    const isForbidden = getApiStatusCode(requestQuery.error) === 403
+
     return (
       <>
         <PageHeader title="Billing Request" description="Review request detail and workflow history." />
-        <ErrorState message="Billing request could not be loaded." onRetry={() => void requestQuery.refetch()} />
+        <ErrorState
+          title={isForbidden ? 'Request not accessible' : undefined}
+          message={isForbidden ? 'You do not have access to this billing request.' : 'Billing request could not be loaded.'}
+          onRetry={isForbidden ? undefined : () => void requestQuery.refetch()}
+        />
       </>
     )
   }
@@ -233,7 +239,15 @@ export function RequestDetailPage() {
                 </Button>
               ) : null}
               {canPayInvoice ? (
-                <Button variant="secondary" className="w-full" onClick={() => workflowMutation.mutate({ action: 'markPaid' })}>
+                <Button
+                  variant="secondary"
+                  className="w-full"
+                  onClick={() => {
+                    if (window.confirm(`Mark invoice ${request.invoice?.invoiceNumber} as paid?`)) {
+                      workflowMutation.mutate({ action: 'markPaid' })
+                    }
+                  }}
+                >
                   Mark Invoice Paid
                 </Button>
               ) : null}

@@ -72,7 +72,14 @@ export function InvoiceDetailPage() {
                 Download PDF
               </Button>
               {canPay ? (
-                <Button onClick={() => markPaidMutation.mutate(invoice.id)} disabled={markPaidMutation.isPending}>
+                <Button
+                  onClick={() => {
+                    if (window.confirm(`Mark invoice ${invoice.invoiceNumber} as paid?`)) {
+                      markPaidMutation.mutate(invoice.id)
+                    }
+                  }}
+                  disabled={markPaidMutation.isPending}
+                >
                   Mark Paid
                 </Button>
               ) : null}

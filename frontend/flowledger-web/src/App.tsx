@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider } from '@tanstack/react-query'
 import { Navigate, Outlet, RouterProvider, createBrowserRouter } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { LoginPage } from './auth/LoginPage'
@@ -18,8 +18,9 @@ import { RequestFormPage } from './pages/RequestFormPage'
 import { RequestListPage } from './pages/RequestListPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { UsersPage } from './pages/UsersPage'
+import { createFlowLedgerQueryClient } from './lib/queryClient'
 
-const queryClient = new QueryClient()
+const queryClient = createFlowLedgerQueryClient()
 
 const router = createBrowserRouter([
   {

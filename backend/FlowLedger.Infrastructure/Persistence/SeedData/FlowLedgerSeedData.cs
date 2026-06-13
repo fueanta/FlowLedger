@@ -214,7 +214,7 @@ public static class FlowLedgerSeedData
         var assignedQueue = status switch
         {
             BillingRequestStatus.Draft or BillingRequestStatus.Rejected => WorkflowQueue.Sales,
-            BillingRequestStatus.AccountsReview => WorkflowQueue.Accounts,
+            BillingRequestStatus.AccountsReview or BillingRequestStatus.InvoiceGenerated => WorkflowQueue.Accounts,
             BillingRequestStatus.ManagerApproval => WorkflowQueue.Manager,
             _ => WorkflowQueue.None
         };
@@ -228,7 +228,13 @@ public static class FlowLedgerSeedData
             Description = $"{title} for seeded workflow testing.",
             Status = status,
             CreatedByUserId = SalesUserId,
-            AssignedToUserId = assignedQueue == WorkflowQueue.None ? null : assignedToUserId,
+            AssignedToUserId = assignedQueue switch
+            {
+                WorkflowQueue.Sales => SalesUserId,
+                WorkflowQueue.Accounts => AccountsUserId,
+                WorkflowQueue.Manager => ManagerUserId,
+                _ => null
+            },
             AssignedQueue = assignedQueue,
             AssignedAtUtc = assignedQueue == WorkflowQueue.None ? null : rejectedAtUtc ?? submittedAtUtc ?? createdAtUtc,
             SubmittedByUserId = submittedAtUtc is null ? null : SalesUserId,

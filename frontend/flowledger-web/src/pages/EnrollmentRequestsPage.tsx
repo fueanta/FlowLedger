@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import { CheckCircle2, XCircle } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { approveEnrollmentRequest, getEnrollmentRequests, rejectEnrollmentRequest } from '../api/enrollment'
 import { ActionDialog } from '../components/ActionDialog'
@@ -35,11 +35,18 @@ export function EnrollmentRequestsPage() {
     queryFn: () => getEnrollmentRequests({ ...listParams, page: state.page, pageSize: state.pageSize }),
   })
 
+  useEffect(() => {
+    if (enrollmentsQuery.isSuccess) {
+      void queryClient.invalidateQueries({ queryKey: ['enrollment-nav-count'] })
+    }
+  }, [enrollmentsQuery.dataUpdatedAt, enrollmentsQuery.isSuccess, queryClient])
+
   const approveMutation = useMutation({
     mutationFn: ({ id, role }: { id: string; role: Role }) => approveEnrollmentRequest(id, role),
     onSuccess: async () => {
       toast.success('Enrollment approved.')
       await queryClient.invalidateQueries({ queryKey: ['enrollment-requests'] })
+      await queryClient.invalidateQueries({ queryKey: ['enrollment-nav-count'] })
       await queryClient.invalidateQueries({ queryKey: ['users'] })
     },
     onError: (error) => toast.error(getApiErrorMessage(error, 'Enrollment could not be approved.')),
@@ -51,6 +58,7 @@ export function EnrollmentRequestsPage() {
       toast.success('Enrollment rejected.')
       setRejectTarget(null)
       await queryClient.invalidateQueries({ queryKey: ['enrollment-requests'] })
+      await queryClient.invalidateQueries({ queryKey: ['enrollment-nav-count'] })
     },
     onError: (error) => toast.error(getApiErrorMessage(error, 'Enrollment could not be rejected.')),
   })

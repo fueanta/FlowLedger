@@ -93,6 +93,8 @@ public class InvoiceEndpointTests
         invoice!.Status.Should().Be(InvoiceStatus.Paid);
         invoice.PaidAtUtc.Should().NotBeNull();
         billingRequest!.Status.Should().Be(BillingRequestStatus.Paid);
+        billingRequest.AssignedQueue.Should().Be(WorkflowQueue.None);
+        billingRequest.AssignedTo.Should().BeNull();
         billingRequest.AuditLogs.Should().Contain(x => x.ActionType == AuditActionType.PaymentMarked);
     }
 

@@ -13,7 +13,8 @@ public sealed record BillingRequestListItemDto(
     DateTime? LastWorkflowActionAtUtc,
     decimal TotalAmount,
     DateTime CreatedAtUtc,
-    DateTime UpdatedAtUtc);
+    DateTime UpdatedAtUtc,
+    BillingRequestInvoiceDto? Invoice);
 
 public sealed record BillingRequestDetailDto(
     Guid Id,

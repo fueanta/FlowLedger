@@ -5,6 +5,7 @@ import { Separator } from '../components/ui/separator'
 import { useAuth } from '../auth/useAuth'
 import { canCreateRequest } from '../lib/permissions'
 import { cn } from '../lib/utils'
+import { EnrollmentNavBadge } from './EnrollmentNavBadge'
 import { RouteTransition } from './RouteTransition'
 import { WorkQueueNavBadge } from './WorkQueueNavBadge'
 
@@ -54,6 +55,7 @@ export function AppLayout() {
                 <item.icon className="h-4 w-4" aria-hidden="true" />
                 <span>{item.label}</span>
                 {item.to === '/app/work-queue' ? <WorkQueueNavBadge /> : null}
+                {item.to === '/app/enrollment-requests' ? <EnrollmentNavBadge /> : null}
               </NavLink>
             ))}
           </nav>
@@ -93,6 +95,7 @@ export function AppLayout() {
                   <item.icon className="h-4 w-4" aria-hidden="true" />
                   <span>{item.label}</span>
                   {item.to === '/app/work-queue' ? <WorkQueueNavBadge /> : null}
+                  {item.to === '/app/enrollment-requests' ? <EnrollmentNavBadge /> : null}
                 </NavLink>
               ))}
             </nav>

@@ -368,7 +368,7 @@ public sealed class DemoSeedDataRefresher
         request.AssignedQueue = request.Status switch
         {
             BillingRequestStatus.Draft or BillingRequestStatus.Rejected => WorkflowQueue.Sales,
-            BillingRequestStatus.AccountsReview => WorkflowQueue.Accounts,
+            BillingRequestStatus.AccountsReview or BillingRequestStatus.InvoiceGenerated => WorkflowQueue.Accounts,
             BillingRequestStatus.ManagerApproval => WorkflowQueue.Manager,
             _ => WorkflowQueue.None
         };

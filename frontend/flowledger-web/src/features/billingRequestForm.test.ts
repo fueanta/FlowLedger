@@ -25,10 +25,18 @@ describe('billing request form validation', () => {
   })
 
   it('calculates subtotal, VAT, and total from line items', () => {
-    expect(calculateRequestTotals([{ description: 'Service fee', quantity: 2, unitPrice: 1000 }])).toEqual({
+    expect(calculateRequestTotals([{ description: 'Service fee', quantity: 2, unitPrice: 1000 }], 15)).toEqual({
       subtotal: 2000,
       vat: 300,
       total: 2300,
+    })
+  })
+
+  it('uses the supplied VAT percentage for totals', () => {
+    expect(calculateRequestTotals([{ description: 'Service fee', quantity: 2, unitPrice: 1000 }], 20)).toEqual({
+      subtotal: 2000,
+      vat: 400,
+      total: 2400,
     })
   })
 })

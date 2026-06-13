@@ -7,6 +7,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { createBillingRequest, getBillingRequest, submitBillingRequest, updateBillingRequest } from '../api/billingRequests'
 import { getCustomers } from '../api/customers'
+import { getSettings } from '../api/settings'
 import { PageHeader } from '../components/PageHeader'
 import { ErrorState, LoadingBlock } from '../components/StateViews'
 import { Button } from '../components/ui/button'
@@ -36,6 +37,12 @@ export function RequestFormPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const customersQuery = useQuery({ queryKey: ['customers'], queryFn: getCustomers })
+  const settingsQuery = useQuery({
+    queryKey: ['settings', 'request-form'],
+    queryFn: getSettings,
+    gcTime: 0,
+    refetchOnMount: 'always',
+  })
   const detailQuery = useQuery({
     queryKey: ['billing-request', id],
     queryFn: () => getBillingRequest(id ?? ''),
@@ -53,7 +60,9 @@ export function RequestFormPage() {
   })
   const { fields, append, remove } = useFieldArray({ control, name: 'lineItems' })
   const watchedLineItems = useWatch({ control, name: 'lineItems' }) ?? []
-  const totals = calculateRequestTotals(watchedLineItems)
+  const vatPercentage = settingsQuery.data?.vatPercentage
+  const hasCurrentSettings = vatPercentage !== undefined && !settingsQuery.isFetching
+  const totals = calculateRequestTotals(watchedLineItems, vatPercentage ?? 0)
 
   useEffect(() => {
     if (detailQuery.data) {
@@ -125,7 +134,7 @@ export function RequestFormPage() {
     <>
       <PageHeader
         title={isEdit ? 'Edit Billing Request' : 'New Billing Request'}
-        description="Add client, description, and billable line items. Totals include 15% VAT."
+        description={hasCurrentSettings ? `Add client, description, and billable line items. Totals include ${vatPercentage}% VAT.` : 'Add client, description, and billable line items.'}
       />
 
       <form className="grid gap-6 xl:grid-cols-[1fr_320px]" noValidate>
@@ -244,19 +253,20 @@ export function RequestFormPage() {
                 <strong>{formatMoney(totals.subtotal)}</strong>
               </div>
               <div className="flex justify-between gap-4">
-                <span className="text-slate-600">VAT 15%</span>
-                <strong>{formatMoney(totals.vat)}</strong>
+                <span className="text-slate-600">VAT{hasCurrentSettings ? ` ${vatPercentage}%` : ''}</span>
+                <strong>{hasCurrentSettings ? formatMoney(totals.vat) : 'Loading...'}</strong>
               </div>
               <div className="flex justify-between gap-4 border-t border-slate-200 pt-3 text-base">
                 <span className="font-semibold text-slate-950">Total</span>
-                <strong>{formatMoney(totals.total)}</strong>
+                <strong>{hasCurrentSettings ? formatMoney(totals.total) : 'Loading...'}</strong>
               </div>
             </div>
+            {settingsQuery.isError ? <p className="text-sm text-red-700">Current VAT settings could not be loaded. Retry before saving.</p> : null}
             <div className="space-y-2">
               <Button
                 type="button"
                 className="w-full"
-                disabled={saveMutation.isPending}
+                disabled={saveMutation.isPending || !hasCurrentSettings}
                 onClick={handleSubmit((values) => saveMutation.mutate({ values, submitAfterSave: false }))}
               >
                 <Save className="h-4 w-4" aria-hidden="true" />
@@ -266,7 +276,7 @@ export function RequestFormPage() {
                 type="button"
                 variant="secondary"
                 className="w-full"
-                disabled={saveMutation.isPending}
+                disabled={saveMutation.isPending || !hasCurrentSettings}
                 onClick={handleSubmit((values) => saveMutation.mutate({ values, submitAfterSave: true }))}
               >
                 <Send className="h-4 w-4" aria-hidden="true" />

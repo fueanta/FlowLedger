@@ -60,6 +60,10 @@ export function getApiErrorMessage(error: unknown, fallback: string) {
   return fallback
 }
 
+export function getApiStatusCode(error: unknown) {
+  return axios.isAxiosError(error) ? error.response?.status : undefined
+}
+
 async function waitForMinimumGetDelay(config: { method?: string; headers?: Record<string, string> } | undefined) {
   if (config?.method?.toLowerCase() !== 'get') {
     return
