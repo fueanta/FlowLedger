@@ -6,6 +6,10 @@ export type InvoiceQuery = {
   status?: InvoiceStatus | ''
   customerId?: string
   search?: string
+  fromDate?: string
+  untilDate?: string
+  minAmount?: string
+  maxAmount?: string
   sortBy?: string
   sortDirection?: 'asc' | 'desc'
   page?: number
@@ -14,7 +18,7 @@ export type InvoiceQuery = {
 
 export async function getInvoices(query: InvoiceQuery) {
   const response = await apiClient.get<PagedResult<InvoiceListItem>>('/invoices', {
-    params: Object.fromEntries(Object.entries(query).filter(([, value]) => value !== undefined && value !== '')),
+    params: normalizeQuery(query),
   })
 
   return response.data
@@ -22,7 +26,7 @@ export async function getInvoices(query: InvoiceQuery) {
 
 export async function exportInvoices(query: Omit<InvoiceQuery, 'page' | 'pageSize'>) {
   const response = await apiClient.get<Blob>('/invoices/export', {
-    params: Object.fromEntries(Object.entries(query).filter(([, value]) => value !== undefined && value !== '')),
+    params: normalizeQuery(query),
     responseType: 'blob',
   })
   downloadCsvBlob(response.data, 'invoices.csv', response.headers['content-disposition'])
@@ -42,4 +46,8 @@ export async function downloadInvoicePdf(id: string, invoiceNumber: string) {
 
 export async function markInvoicePaid(id: string) {
   await apiClient.post(`/invoices/${id}/mark-paid`)
+}
+
+function normalizeQuery(query: InvoiceQuery) {
+  return Object.fromEntries(Object.entries(query).filter(([, value]) => value !== undefined && value !== null && value !== ''))
 }

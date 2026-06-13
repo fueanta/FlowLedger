@@ -397,10 +397,25 @@ public sealed class BillingRequestService : IBillingRequestService
 
         if (query.UntilDate is not null)
         {
-            requests = requests.Where(x => x.CreatedAtUtc <= query.UntilDate);
+            requests = requests.Where(x => x.CreatedAtUtc < ToExclusiveEnd(query.UntilDate.Value));
+        }
+
+        if (query.MinAmount is not null)
+        {
+            requests = requests.Where(x => x.TotalAmount >= query.MinAmount);
+        }
+
+        if (query.MaxAmount is not null)
+        {
+            requests = requests.Where(x => x.TotalAmount <= query.MaxAmount);
         }
 
         return requests;
+    }
+
+    private static DateTime ToExclusiveEnd(DateTime value)
+    {
+        return value.TimeOfDay == TimeSpan.Zero ? value.Date.AddDays(1) : value.AddTicks(1);
     }
 
     private static IQueryable<BillingRequest> ApplySort(IQueryable<BillingRequest> query, string? sortBy, string? sortDirection)

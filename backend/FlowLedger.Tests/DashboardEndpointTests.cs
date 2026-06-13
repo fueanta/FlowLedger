@@ -73,6 +73,27 @@ public class DashboardEndpointTests
     }
 
     [Fact]
+    public async Task Summary_PeriodMetrics_IncreaseAcrossOneThreeSixAndTwelveMonths()
+    {
+        using var client = await _fixture.CreateAuthenticatedClientAsync(RoleName.Admin);
+
+        var oneMonth = await GetSummaryAsync(client, 1);
+        var threeMonths = await GetSummaryAsync(client, 3);
+        var sixMonths = await GetSummaryAsync(client, 6);
+        var twelveMonths = await GetSummaryAsync(client, 12);
+
+        oneMonth.TotalRequests.Should().BeGreaterThan(0);
+        threeMonths.TotalRequests.Should().BeGreaterThan(oneMonth.TotalRequests);
+        sixMonths.TotalRequests.Should().BeGreaterThan(threeMonths.TotalRequests);
+        twelveMonths.TotalRequests.Should().BeGreaterThan(sixMonths.TotalRequests);
+
+        threeMonths.TotalInvoiceAmount.Should().BeGreaterThan(oneMonth.TotalInvoiceAmount);
+        sixMonths.TotalInvoiceAmount.Should().BeGreaterThan(threeMonths.TotalInvoiceAmount);
+        twelveMonths.TotalInvoiceAmount.Should().BeGreaterThan(sixMonths.TotalInvoiceAmount);
+        twelveMonths.MonthlyInvoiceTrend.Count.Should().BeGreaterThan(oneMonth.MonthlyInvoiceTrend.Count);
+    }
+
+    [Fact]
     public async Task RefreshedDemoSeedData_FinalWorkflowStates_HaveMatchingAuditLogs()
     {
         using var scope = _fixture.Factory.Services.CreateScope();
@@ -121,5 +142,15 @@ public class DashboardEndpointTests
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         body.Should().Contain("PeriodMonths");
+    }
+
+    private static async Task<DashboardSummaryDto> GetSummaryAsync(HttpClient client, int periodMonths)
+    {
+        var response = await client.GetAsync($"/api/dashboard/summary?periodMonths={periodMonths}");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var summary = await response.Content.ReadFromJsonAsync<DashboardSummaryDto>(JsonOptions);
+        summary.Should().NotBeNull();
+        return summary!;
     }
 }

@@ -8,12 +8,13 @@ import { toast } from 'sonner'
 import { getSettings, updateSettings } from '../api/settings'
 import { useAuth } from '../auth/useAuth'
 import { PageHeader } from '../components/PageHeader'
-import { ErrorState, LoadingBlock } from '../components/StateViews'
+import { ErrorState } from '../components/StateViews'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
+import { Skeleton } from '../components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
 import { settingsFormSchema, type SettingsFormValues } from '../features/settingsForm'
 import { getApiErrorMessage } from '../lib/apiClient'
@@ -67,11 +68,10 @@ export function SettingsPage() {
         description="Configure billing workflow defaults. Non-admin roles can review current settings."
       />
 
-      {settingsQuery.isLoading ? <LoadingBlock /> : null}
       {settingsQuery.isError ? <ErrorState message="Settings could not be loaded." onRetry={() => void settingsQuery.refetch()} /> : null}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-        <Card>
+        <Card data-testid="billing-settings-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Settings2 className="h-5 w-5 text-blue-950" aria-hidden="true" />
@@ -79,48 +79,59 @@ export function SettingsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <form className="grid gap-4 md:grid-cols-3" noValidate onSubmit={handleSubmit((values) => updateMutation.mutate(values))}>
-              <SettingField label="VAT Percentage" id="vatPercentage" suffix="%" error={errors.vatPercentage?.message}>
-                <Input
-                  id="vatPercentage"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="30"
-                  disabled={!isAdmin}
-                  {...register('vatPercentage', { valueAsNumber: true })}
-                />
-              </SettingField>
-              <SettingField label="Manager Threshold" id="managerApprovalThreshold" error={errors.managerApprovalThreshold?.message}>
-                <Input
-                  id="managerApprovalThreshold"
-                  type="number"
-                  min="1"
-                  disabled={!isAdmin}
-                  {...register('managerApprovalThreshold', { valueAsNumber: true })}
-                />
-              </SettingField>
-              <SettingField label="Invoice Due Days" id="invoiceDueDays" suffix="days" error={errors.invoiceDueDays?.message}>
-                <Input
-                  id="invoiceDueDays"
-                  type="number"
-                  min="1"
-                  max="365"
-                  disabled={!isAdmin}
-                  {...register('invoiceDueDays', { valueAsNumber: true })}
-                />
-              </SettingField>
-              <div className="flex items-center gap-3 md:col-span-3">
-                {isAdmin ? (
-                  <Button type="submit" disabled={updateMutation.isPending}>
-                    <Save className="h-4 w-4" aria-hidden="true" />
-                    {updateMutation.isPending ? 'Saving...' : 'Save Settings'}
-                  </Button>
-                ) : (
-                  <Badge variant="outline">Read only</Badge>
-                )}
+            {settingsQuery.isLoading ? (
+              <div className="space-y-4" role="status" aria-label="Loading billing settings">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <Skeleton className="h-20 w-full" />
+                  <Skeleton className="h-20 w-full" />
+                  <Skeleton className="h-20 w-full" />
+                </div>
+                <Skeleton className="h-10 w-32" />
               </div>
-            </form>
+            ) : (
+              <form className="grid gap-4 md:grid-cols-3" noValidate onSubmit={handleSubmit((values) => updateMutation.mutate(values))}>
+                <SettingField label="VAT Percentage" id="vatPercentage" suffix="%" error={errors.vatPercentage?.message}>
+                  <Input
+                    id="vatPercentage"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="30"
+                    disabled={!isAdmin}
+                    {...register('vatPercentage', { valueAsNumber: true })}
+                  />
+                </SettingField>
+                <SettingField label="Manager Threshold" id="managerApprovalThreshold" error={errors.managerApprovalThreshold?.message}>
+                  <Input
+                    id="managerApprovalThreshold"
+                    type="number"
+                    min="1"
+                    disabled={!isAdmin}
+                    {...register('managerApprovalThreshold', { valueAsNumber: true })}
+                  />
+                </SettingField>
+                <SettingField label="Invoice Due Days" id="invoiceDueDays" suffix="days" error={errors.invoiceDueDays?.message}>
+                  <Input
+                    id="invoiceDueDays"
+                    type="number"
+                    min="1"
+                    max="365"
+                    disabled={!isAdmin}
+                    {...register('invoiceDueDays', { valueAsNumber: true })}
+                  />
+                </SettingField>
+                <div className="flex items-center gap-3 md:col-span-3">
+                  {isAdmin ? (
+                    <Button type="submit" disabled={updateMutation.isPending}>
+                      <Save className="h-4 w-4" aria-hidden="true" />
+                      {updateMutation.isPending ? 'Saving...' : 'Save Settings'}
+                    </Button>
+                  ) : (
+                    <Badge variant="outline">Read only</Badge>
+                  )}
+                </div>
+              </form>
+            )}
           </CardContent>
         </Card>
 
@@ -129,14 +140,24 @@ export function SettingsPage() {
             <CardTitle>Current Rule Impact</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm leading-6 text-slate-700">
-            <p>
-              New billing request totals use the current VAT rate. Existing request totals and existing invoice values stay unchanged.
-            </p>
-            <p>
-              Accounts approvals route to Manager when total amount is above{' '}
-              <strong className="text-slate-950">{formatMoney(settingsQuery.data?.managerApprovalThreshold ?? 0)}</strong>.
-            </p>
-            <p>New invoices use the due-day value at generation time; already issued invoices keep their original due dates.</p>
+            {settingsQuery.isLoading ? (
+              <div className="space-y-3" role="status" aria-label="Loading rule impact">
+                <Skeleton className="h-5 w-full" />
+                <Skeleton className="h-5 w-11/12" />
+                <Skeleton className="h-5 w-10/12" />
+              </div>
+            ) : (
+              <>
+                <p>
+                  New billing request totals use the current VAT rate. Existing request totals and existing invoice values stay unchanged.
+                </p>
+                <p>
+                  Accounts approvals route to Manager when total amount is above{' '}
+                  <strong className="text-slate-950">{formatMoney(settingsQuery.data?.managerApprovalThreshold ?? 0)}</strong>.
+                </p>
+                <p>New invoices use the due-day value at generation time; already issued invoices keep their original due dates.</p>
+              </>
+            )}
           </CardContent>
         </Card>
 

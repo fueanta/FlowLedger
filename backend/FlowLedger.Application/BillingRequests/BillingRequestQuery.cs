@@ -11,6 +11,8 @@ public sealed record BillingRequestQuery(
     string? Search = null,
     DateTime? FromDate = null,
     DateTime? UntilDate = null,
+    decimal? MinAmount = null,
+    decimal? MaxAmount = null,
     string? SortBy = null,
     string? SortDirection = null,
     int Page = 1,

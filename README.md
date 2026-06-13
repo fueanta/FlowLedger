@@ -8,7 +8,8 @@ FlowLedger is an ERP-style billing approval and invoice workflow module. Sales c
 - React Vite TypeScript frontend with Tailwind, shadcn-style components, TanStack Query, Axios, React Hook Form, Zod, Lucide, and Recharts.
 - JWT login with seeded demo users and role-based API/UI behavior.
 - Billing request create, edit, submit, approve, reject, comment, invoice generation, payment marking, dashboard, and audit timeline.
-- Workflow enhancements: client administration, user enrollment/admin, configurable billing settings, work queues, user preferences, standardized paginated tables, CSV exports, audit-log filtering, SQL Server temporal history, and invoice print/PDF export.
+- Workflow enhancements: client administration, user enrollment/admin, configurable billing settings, work queues, user preferences, standardized paginated tables, date and amount filters aligned with CSV exports, audit-log filtering, SQL Server temporal history, and invoice print/PDF export.
+- Smooth app-page and modal transitions with reduced-motion support, a persistent Work Queue attention badge for pending role-specific work.
 
 ## Selected option
 
@@ -90,7 +91,7 @@ Set `ConnectionStrings__DefaultConnection`, `Jwt__Key`, and the `SeedUsers__*Pas
 6. Users can request access; Admin approves or rejects enrollment and manages users.
 7. Accounts or Manager rejects a request, and Sales revises and resubmits it.
 8. Admin configures VAT, approval threshold, invoice due days, and JWT lifetime.
-9. List pages share server-side pagination, search, sorting, page-size preferences, and CSV export where required.
+9. List pages share server-side pagination, search, sorting, date and amount filters where applicable, page-size preferences, and CSV export where required.
 
 ![FlowLedger high-level behaviour flow](docs/agent-build-sessions/02-workflow-administration-audit-enhancements/session-flow.png)
 

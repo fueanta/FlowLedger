@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Eye, Plus, ThumbsUp, XCircle } from 'lucide-react'
+import type { ReactNode } from 'react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -13,11 +14,11 @@ import { DataTableExportButton } from '../components/data-table/DataTableExportB
 import { DataTablePageSizeSelect } from '../components/data-table/DataTablePageSizeSelect'
 import { DataTableSearch } from '../components/data-table/DataTableSearch'
 import { DataTableSortableHeader } from '../components/data-table/DataTableSortableHeader'
-import { DataTableToolbar } from '../components/data-table/DataTableToolbar'
 import { useDataTableState } from '../components/data-table/dataTableState'
 import { PageHeader } from '../components/PageHeader'
 import { StatusBadge } from '../components/StatusBadge'
 import { Button } from '../components/ui/button'
+import { Input } from '../components/ui/input'
 import { Select } from '../components/ui/select'
 import { getApiErrorMessage } from '../lib/apiClient'
 import { formatDate, formatMoney } from '../lib/format'
@@ -43,9 +44,25 @@ export function RequestListPage() {
   const [customerId, setCustomerId] = useState('')
   const [assignedToMe, setAssignedToMe] = useState(false)
   const [createdByMe, setCreatedByMe] = useState(user?.role === 'Sales')
+  const [fromDate, setFromDate] = useState('')
+  const [untilDate, setUntilDate] = useState('')
+  const [minAmount, setMinAmount] = useState('')
+  const [maxAmount, setMaxAmount] = useState('')
   const [rejectTarget, setRejectTarget] = useState<BillingRequestListItem | null>(null)
 
-  const listParams = { status, customerId, search: state.search, assignedToMe, createdByMe, sortBy: state.sortBy, sortDirection: state.sortDirection }
+  const listParams = {
+    status,
+    customerId,
+    search: state.search,
+    assignedToMe,
+    createdByMe,
+    fromDate,
+    untilDate,
+    minAmount,
+    maxAmount,
+    sortBy: state.sortBy,
+    sortDirection: state.sortDirection,
+  }
   const requestsQuery = useQuery({
     queryKey: ['billing-requests', { ...listParams, page: state.page, pageSize: state.pageSize }],
     queryFn: () => getBillingRequests({ ...listParams, page: state.page, pageSize: state.pageSize }),
@@ -151,50 +168,115 @@ export function RequestListPage() {
         }
       />
 
-      <DataTableToolbar actions={<DataTableExportButton onExport={() => exportMutation.mutate()} disabled={exportMutation.isPending} />}>
-        <DataTableSearch value={state.search} onChange={setSearch} />
-        <FilterSelect
-          label="Status"
-          value={status}
-          onChange={(value) => {
-            setStatus(value as BillingRequestStatus | '')
-            setPage(1)
-          }}
-          options={requestStatuses.map((item) => ({ value: item, label: item || 'All statuses' }))}
-        />
-        <FilterSelect
-          label="Client"
-          value={customerId}
-          onChange={(value) => {
-            setCustomerId(value)
-            setPage(1)
-          }}
-          options={[{ value: '', label: 'All active clients' }, ...(customersQuery.data ?? []).map((customer) => ({ value: customer.id, label: customer.name }))]}
-        />
-        <label className="flex items-center gap-2 text-sm text-slate-700">
-          <input
-            type="checkbox"
-            checked={assignedToMe}
-            onChange={(event) => {
-              setAssignedToMe(event.target.checked)
-              setPage(1)
-            }}
-          />
-          Assigned to me
-        </label>
-        <label className="flex items-center gap-2 text-sm text-slate-700">
-          <input
-            type="checkbox"
-            checked={createdByMe}
-            onChange={(event) => {
-              setCreatedByMe(event.target.checked)
-              setPage(1)
-            }}
-          />
-          Created by me
-        </label>
-        <DataTablePageSizeSelect value={state.pageSize} onChange={setPageSize} />
-      </DataTableToolbar>
+      <FilterPanel label="Billing request filters">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-12">
+          <div className="min-w-0 md:col-span-2 xl:col-span-6">
+            <DataTableSearch value={state.search} onChange={setSearch} />
+          </div>
+          <div className="min-w-0 xl:col-span-3">
+            <FilterSelect
+              label="Status"
+              value={status}
+              onChange={(value) => {
+                setStatus(value as BillingRequestStatus | '')
+                setPage(1)
+              }}
+              options={requestStatuses.map((item) => ({ value: item, label: item || 'All statuses' }))}
+            />
+          </div>
+          <div className="min-w-0 xl:col-span-3">
+            <FilterSelect
+              label="Client"
+              value={customerId}
+              onChange={(value) => {
+                setCustomerId(value)
+                setPage(1)
+              }}
+              options={[{ value: '', label: 'All active clients' }, ...(customersQuery.data ?? []).map((customer) => ({ value: customer.id, label: customer.name }))]}
+            />
+          </div>
+        </div>
+        <div className="mt-5 grid gap-4 lg:grid-cols-2 xl:grid-cols-12">
+          <div className="min-w-0 xl:col-span-5">
+            <RangeFieldGroup label="Created range">
+              <FilterInput
+                id="request-from-date"
+                label="From"
+                type="date"
+                value={fromDate}
+                onChange={(value) => {
+                  setFromDate(value)
+                  setPage(1)
+                }}
+              />
+              <FilterInput
+                id="request-until-date"
+                label="To"
+                type="date"
+                value={untilDate}
+                onChange={(value) => {
+                  setUntilDate(value)
+                  setPage(1)
+                }}
+              />
+            </RangeFieldGroup>
+          </div>
+          <div className="min-w-0 xl:col-span-4">
+            <RangeFieldGroup label="Amount range">
+              <FilterInput
+                id="request-min-amount"
+                label="Min"
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="0.01"
+                value={minAmount}
+                onChange={(value) => {
+                  setMinAmount(value)
+                  setPage(1)
+                }}
+              />
+              <FilterInput
+                id="request-max-amount"
+                label="Max"
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="0.01"
+                value={maxAmount}
+                onChange={(value) => {
+                  setMaxAmount(value)
+                  setPage(1)
+                }}
+              />
+            </RangeFieldGroup>
+          </div>
+          <FilterActions>
+            <div className="space-y-2">
+              <CheckboxRow
+                checked={assignedToMe}
+                label="Assigned to me"
+                onChange={(checked) => {
+                  setAssignedToMe(checked)
+                  setPage(1)
+                }}
+              />
+              <CheckboxRow
+                checked={createdByMe}
+                label="Created by me"
+                onChange={(checked) => {
+                  setCreatedByMe(checked)
+                  setPage(1)
+                }}
+              />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,12rem)_auto] sm:items-end xl:grid-cols-1">
+              <DataTablePageSizeSelect value={state.pageSize} onChange={setPageSize} />
+              <DataTableExportButton className="w-full sm:w-auto xl:w-full" onExport={() => exportMutation.mutate()} disabled={exportMutation.isPending} />
+            </div>
+          </FilterActions>
+        </div>
+      </FilterPanel>
 
       <DataTable
         data={requestsQuery.data?.items ?? []}
@@ -243,6 +325,70 @@ function FilterSelect({ label, value, options, onChange }: { label: string; valu
         ))}
       </Select>
     </div>
+  )
+}
+
+function FilterInput({
+  id,
+  label,
+  value,
+  onChange,
+  type = 'text',
+  inputMode,
+  min,
+  step,
+}: {
+  id: string
+  label: string
+  value: string
+  onChange: (value: string) => void
+  type?: 'text' | 'date' | 'number'
+  inputMode?: 'text' | 'decimal' | 'numeric'
+  min?: string
+  step?: string
+}) {
+  return (
+    <div className="space-y-2">
+      <label className="text-sm font-medium text-slate-900" htmlFor={id}>
+        {label}
+      </label>
+      <Input id={id} className="min-w-0" type={type} inputMode={inputMode} min={min} step={step} value={value} onChange={(event) => onChange(event.target.value)} />
+    </div>
+  )
+}
+
+function FilterPanel({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <section aria-label={label} className="mb-4 rounded-md border border-slate-200 bg-white p-4">
+      {children}
+    </section>
+  )
+}
+
+function RangeFieldGroup({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <fieldset className="min-w-0 space-y-2">
+      <legend className="text-sm font-medium text-slate-900">{label}</legend>
+      <div className="grid gap-3 sm:grid-cols-2">{children}</div>
+    </fieldset>
+  )
+}
+
+function FilterActions({ children }: { children: ReactNode }) {
+  return (
+    <div className="min-w-0 space-y-3 lg:col-span-2 xl:col-span-3 xl:self-end">
+      <p className="text-sm font-medium text-slate-900">List options</p>
+      <div className="space-y-3">{children}</div>
+    </div>
+  )
+}
+
+function CheckboxRow({ checked, label, onChange }: { checked: boolean; label: string; onChange: (checked: boolean) => void }) {
+  return (
+    <label className="flex items-center gap-2 text-sm text-slate-700">
+      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
+      <span>{label}</span>
+    </label>
   )
 }
 

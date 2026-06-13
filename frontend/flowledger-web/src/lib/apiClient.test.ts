@@ -1,12 +1,14 @@
 import MockAdapter from 'axios-mock-adapter'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { apiClient, setUnauthorizedHandler } from './apiClient'
+import { apiClient, setMinimumGetDelayForTesting, setUnauthorizedHandler } from './apiClient'
 import { getStoredAuth, setStoredAuth } from './authStorage'
 
 describe('api client auth handling', () => {
   afterEach(() => {
     window.localStorage.clear()
     setUnauthorizedHandler(null)
+    setMinimumGetDelayForTesting(0)
+    vi.useRealTimers()
   })
 
   it('clears stored auth and calls handler on 401 responses', async () => {
@@ -33,5 +35,25 @@ describe('api client auth handling', () => {
 
     expect(getStoredAuth()).toBeNull()
     expect(handler).toHaveBeenCalledOnce()
+  })
+
+  it('holds get responses for at least one second so loading state stays visible briefly', async () => {
+    vi.useFakeTimers()
+    setMinimumGetDelayForTesting(1_000)
+
+    const mock = new MockAdapter(apiClient)
+    mock.onGet('/dashboard/summary').reply(200, { totalRequests: 4 })
+
+    let resolved = false
+    const request = apiClient.get('/dashboard/summary').then(() => {
+      resolved = true
+    })
+
+    await vi.advanceTimersByTimeAsync(999)
+    expect(resolved).toBe(false)
+
+    await vi.advanceTimersByTimeAsync(1)
+    await request
+    expect(resolved).toBe(true)
   })
 })

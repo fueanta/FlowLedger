@@ -119,7 +119,192 @@ public sealed class DemoSeedDataRefresher
             notification.CreatedAtUtc = baseDate.AddDays(GetTrailingNumber(notification.Id.ToString()) + 18);
         }
 
+        await UpsertDashboardDensityRowsAsync(today, cancellationToken);
+
         await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task UpsertDashboardDensityRowsAsync(DateTime today, CancellationToken cancellationToken)
+    {
+        var specs = DashboardDensitySpecs();
+        var requests = await _dbContext.BillingRequests
+            .Include(x => x.LineItems)
+            .Include(x => x.Invoice)
+            .Where(x => x.RequestNumber.StartsWith("BR-DASH-"))
+            .ToDictionaryAsync(x => x.RequestNumber, cancellationToken);
+        var auditLogs = await _dbContext.AuditLogs
+            .Where(x => x.EntityNumber != null && x.EntityNumber.StartsWith("BR-DASH-"))
+            .ToListAsync(cancellationToken);
+
+        foreach (var spec in specs)
+        {
+            var createdAt = today.AddDays(-spec.AgeDays).AddHours(10);
+            var submittedAt = createdAt.AddHours(2);
+            var approvedAt = spec.Status is BillingRequestStatus.InvoiceGenerated or BillingRequestStatus.Paid
+                ? createdAt.AddDays(1)
+                : (DateTime?)null;
+            var updatedAt = spec.Status == BillingRequestStatus.Paid
+                ? approvedAt!.Value.AddDays(2)
+                : approvedAt ?? createdAt.AddDays(1);
+            var subtotal = Math.Round(spec.TotalAmount / 1.15m, 2);
+            var vat = spec.TotalAmount - subtotal;
+
+            if (!requests.TryGetValue(spec.RequestNumber, out var request))
+            {
+                request = new Domain.Entities.BillingRequest
+                {
+                    Id = spec.RequestId,
+                    RequestNumber = spec.RequestNumber,
+                    CreatedByUserId = FlowLedgerSeedData.SalesUserId,
+                    CustomerId = spec.CustomerId
+                };
+                _dbContext.BillingRequests.Add(request);
+                requests[spec.RequestNumber] = request;
+            }
+
+            request.Title = spec.Title;
+            request.Description = $"{spec.Title} for rolling dashboard demo reporting.";
+            request.Status = spec.Status;
+            request.AssignedQueue = WorkflowQueue.None;
+            request.AssignedToUserId = null;
+            request.AssignedAtUtc = null;
+            request.SubmittedByUserId = FlowLedgerSeedData.SalesUserId;
+            request.AccountsReviewedByUserId = FlowLedgerSeedData.AccountsUserId;
+            request.ManagerReviewedByUserId = spec.TotalAmount > 100000m ? FlowLedgerSeedData.ManagerUserId : null;
+            request.LastWorkflowActionAtUtc = updatedAt;
+            request.SubtotalAmount = subtotal;
+            request.VatAmount = vat;
+            request.TotalAmount = spec.TotalAmount;
+            request.SubmittedAtUtc = submittedAt;
+            request.ApprovedAtUtc = approvedAt;
+            request.RejectedAtUtc = null;
+            request.CreatedAtUtc = createdAt;
+            request.UpdatedAtUtc = updatedAt;
+
+            var lineItem = request.LineItems.SingleOrDefault();
+            if (lineItem is null)
+            {
+                lineItem = new Domain.Entities.BillingRequestLineItem
+                {
+                    Id = spec.LineItemId,
+                    BillingRequestId = spec.RequestId
+                };
+                request.LineItems.Add(lineItem);
+                _dbContext.BillingRequestLineItems.Add(lineItem);
+            }
+
+            lineItem.Description = $"{spec.Title} line item";
+            lineItem.Quantity = 1;
+            lineItem.UnitPrice = subtotal;
+            lineItem.LineTotal = subtotal;
+
+            if (spec.Status is BillingRequestStatus.InvoiceGenerated or BillingRequestStatus.Paid)
+            {
+                var invoice = request.Invoice;
+                if (invoice is null)
+                {
+                    invoice = new Domain.Entities.Invoice
+                    {
+                        Id = spec.InvoiceId!.Value,
+                        InvoiceNumber = spec.InvoiceNumber!,
+                        BillingRequestId = spec.RequestId,
+                        CustomerId = spec.CustomerId
+                    };
+                    _dbContext.Invoices.Add(invoice);
+                    request.Invoice = invoice;
+                }
+
+                invoice.SubtotalAmount = subtotal;
+                invoice.VatPercentage = 15m;
+                invoice.VatAmount = vat;
+                invoice.TotalAmount = spec.TotalAmount;
+                invoice.Status = spec.Status == BillingRequestStatus.Paid ? InvoiceStatus.Paid : InvoiceStatus.Issued;
+                invoice.IssuedAtUtc = approvedAt!.Value;
+                invoice.DueDays = 30;
+                invoice.DueAtUtc = approvedAt.Value.AddDays(30);
+                invoice.PaidAtUtc = spec.Status == BillingRequestStatus.Paid ? updatedAt : null;
+            }
+
+            UpsertAuditLog(auditLogs, spec.AuditBase, request, AuditActionType.Created, FlowLedgerSeedData.SalesUserId, "Billing request created.", createdAt.AddMinutes(10));
+            UpsertAuditLog(auditLogs, spec.AuditBase + 1, request, AuditActionType.Submitted, FlowLedgerSeedData.SalesUserId, "Billing request submitted to Accounts.", submittedAt.AddMinutes(10));
+
+            if (spec.Status is BillingRequestStatus.InvoiceGenerated or BillingRequestStatus.Paid)
+            {
+                UpsertAuditLog(auditLogs, spec.AuditBase + 2, request, AuditActionType.InvoiceGenerated, FlowLedgerSeedData.AccountsUserId, "Invoice generated after approval.", approvedAt!.Value.AddMinutes(10));
+            }
+
+            if (spec.Status == BillingRequestStatus.Paid)
+            {
+                UpsertAuditLog(auditLogs, spec.AuditBase + 3, request, AuditActionType.PaymentMarked, FlowLedgerSeedData.AccountsUserId, "Invoice marked as paid.", updatedAt.AddMinutes(10));
+            }
+        }
+    }
+
+    private void UpsertAuditLog(
+        ICollection<Domain.Entities.AuditLog> auditLogs,
+        int number,
+        Domain.Entities.BillingRequest request,
+        AuditActionType actionType,
+        Guid actorUserId,
+        string message,
+        DateTime createdAtUtc)
+    {
+        var id = Guid.Parse($"edededed-eded-eded-eded-{number:000000000000}");
+        var auditLog = auditLogs.SingleOrDefault(x => x.Id == id);
+        if (auditLog is null)
+        {
+            auditLog = new Domain.Entities.AuditLog
+            {
+                Id = id,
+                BillingRequestId = request.Id,
+                EntityId = request.Id
+            };
+            auditLogs.Add(auditLog);
+            _dbContext.AuditLogs.Add(auditLog);
+        }
+
+        auditLog.BillingRequestId = request.Id;
+        auditLog.EntityType = "BillingRequest";
+        auditLog.EntityId = request.Id;
+        auditLog.EntityNumber = request.RequestNumber;
+        auditLog.ActorUserId = actorUserId;
+        auditLog.ActorDisplayName = FlowLedgerSeedData.Users.Single(x => x.Id == actorUserId).FullName;
+        auditLog.ActionType = actionType;
+        auditLog.Message = message;
+        auditLog.CreatedAtUtc = createdAtUtc;
+    }
+
+    private static IReadOnlyList<DashboardDensitySpec> DashboardDensitySpecs()
+    {
+        return
+        [
+            new(1, 5, FlowLedgerSeedData.FiberRetailCustomerId, "Recent retail renewal", BillingRequestStatus.InvoiceGenerated, 62000m),
+            new(2, 12, FlowLedgerSeedData.MetroLogisticsCustomerId, "Recent freight settlement", BillingRequestStatus.Paid, 81000m),
+            new(3, 50, FlowLedgerSeedData.NorthstarCustomerId, "Quarterly service closeout", BillingRequestStatus.InvoiceGenerated, 74000m),
+            new(4, 75, FlowLedgerSeedData.GreenlineCustomerId, "Quarterly distribution billing", BillingRequestStatus.Paid, 56000m),
+            new(5, 135, FlowLedgerSeedData.BluePeakCustomerId, "Midyear platform expansion", BillingRequestStatus.InvoiceGenerated, 132000m),
+            new(6, 170, FlowLedgerSeedData.EasternTradingCustomerId, "Midyear supply billing", BillingRequestStatus.Paid, 116000m),
+            new(7, 255, FlowLedgerSeedData.FiberRetailCustomerId, "Annual service true-up", BillingRequestStatus.InvoiceGenerated, 98000m),
+            new(8, 335, FlowLedgerSeedData.MetroLogisticsCustomerId, "Legacy freight adjustment", BillingRequestStatus.Paid, 67000m)
+        ];
+    }
+
+    private sealed record DashboardDensitySpec(
+        int Number,
+        int AgeDays,
+        Guid CustomerId,
+        string Title,
+        BillingRequestStatus Status,
+        decimal TotalAmount)
+    {
+        public Guid RequestId => Guid.Parse($"abababab-abab-abab-abab-{Number:000000000000}");
+        public Guid LineItemId => Guid.Parse($"babababa-baba-baba-baba-{Number:000000000000}");
+        public Guid? InvoiceId => Status is BillingRequestStatus.InvoiceGenerated or BillingRequestStatus.Paid
+            ? Guid.Parse($"cacacaca-caca-caca-caca-{Number:000000000000}")
+            : null;
+        public string RequestNumber => $"BR-DASH-{Number:0000}";
+        public string? InvoiceNumber => InvoiceId is null ? null : $"INV-DASH-{Number:0000}";
+        public int AuditBase => Number * 10;
     }
 
     private static int GetTrailingNumber(string value)

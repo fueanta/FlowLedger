@@ -46,4 +46,97 @@
   [role='button'] {
     @apply cursor-pointer;
   }
+
+  .route-transition {
+    animation: route-fade-in 180ms ease-out both;
+  }
+
+  .dialog-overlay-enter {
+    animation: dialog-overlay-enter 160ms ease-out both;
+  }
+
+  .dialog-overlay-exit {
+    animation: dialog-overlay-exit 160ms ease-in both;
+  }
+
+  .dialog-panel-enter {
+    animation: dialog-panel-enter 180ms ease-out both;
+  }
+
+  .dialog-panel-exit {
+    animation: dialog-panel-exit 140ms ease-in both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto !important;
+    }
+
+    .route-transition,
+    .dialog-overlay-enter,
+    .dialog-overlay-exit,
+    .dialog-panel-enter,
+    .dialog-panel-exit {
+      animation: none !important;
+      transform: none !important;
+    }
+  }
+}
+
+@keyframes route-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes dialog-overlay-enter {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dialog-overlay-exit {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes dialog-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes dialog-panel-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
 }

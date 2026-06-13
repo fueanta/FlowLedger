@@ -201,7 +201,32 @@ public sealed class InvoiceService : IInvoiceService
                 x.Customer.Name.Contains(search));
         }
 
+        if (query.FromDate is not null)
+        {
+            invoices = invoices.Where(x => x.IssuedAtUtc >= query.FromDate);
+        }
+
+        if (query.UntilDate is not null)
+        {
+            invoices = invoices.Where(x => x.IssuedAtUtc < ToExclusiveEnd(query.UntilDate.Value));
+        }
+
+        if (query.MinAmount is not null)
+        {
+            invoices = invoices.Where(x => x.TotalAmount >= query.MinAmount);
+        }
+
+        if (query.MaxAmount is not null)
+        {
+            invoices = invoices.Where(x => x.TotalAmount <= query.MaxAmount);
+        }
+
         return invoices;
+    }
+
+    private static DateTime ToExclusiveEnd(DateTime value)
+    {
+        return value.TimeOfDay == TimeSpan.Zero ? value.Date.AddDays(1) : value.AddTicks(1);
     }
 
     private static IQueryable<Invoice> ApplySort(IQueryable<Invoice> query, string? sortBy, string? sortDirection)

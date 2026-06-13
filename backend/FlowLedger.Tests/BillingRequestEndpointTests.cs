@@ -8,7 +8,9 @@ using FlowLedger.Application.Auth;
 using FlowLedger.Application.BillingRequests;
 using FlowLedger.Application.Common;
 using FlowLedger.Domain.Enums;
+using FlowLedger.Infrastructure.Persistence;
 using FlowLedger.Infrastructure.Persistence.SeedData;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -114,6 +116,22 @@ public class BillingRequestEndpointTests
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         queue!.Items.Should().ContainSingle(x => x.Id == id);
         queue.Items.Should().OnlyContain(x => x.AssignedQueue == WorkflowQueue.Accounts);
+    }
+
+    [Fact]
+    public async Task WorkQueue_WithPageSizeOne_ReturnsTotalCountForNavigationBadge()
+    {
+        using var salesClient = await _fixture.CreateAuthenticatedClientAsync(RoleName.Sales);
+        await CreateSubmittedRequestAsync(salesClient, 45000m);
+        using var accountsClient = await _fixture.CreateAuthenticatedClientAsync(RoleName.Accounts);
+
+        var response = await accountsClient.GetAsync("/api/work-queue?pageSize=1");
+        var queue = await response.Content.ReadFromJsonAsync<PagedResult<BillingRequestListItemDto>>(JsonOptions);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        queue!.PageSize.Should().Be(1);
+        queue.Items.Should().ContainSingle();
+        queue.TotalCount.Should().BeGreaterThan(0);
     }
 
     [Fact]
@@ -290,6 +308,38 @@ public class BillingRequestEndpointTests
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
+    [Fact]
+    public async Task ListAndCsvExport_WithDateAndAmountFilters_ReturnMatchingBillingRequest()
+    {
+        using var salesClient = await _fixture.CreateAuthenticatedClientAsync(RoleName.Sales);
+
+        var olderHighAmountId = await CreateRequestAsync(salesClient, 70000m, "Billing filter target");
+        var recentHighAmountId = await CreateRequestAsync(salesClient, 70000m, "Billing filter target");
+        var recentLowAmountId = await CreateRequestAsync(salesClient, 40000m, "Billing filter target");
+
+        var today = DateTime.UtcNow.Date;
+        await SetBillingRequestCreatedAtAsync(olderHighAmountId, today.AddDays(-10).AddHours(9));
+        await SetBillingRequestCreatedAtAsync(recentHighAmountId, today.AddHours(9));
+        await SetBillingRequestCreatedAtAsync(recentLowAmountId, today.AddHours(10));
+
+        var listResponse = await salesClient.GetAsync($"/api/billing-requests?search=Billing%20filter%20target&createdByMe=true&fromDate={today:yyyy-MM-dd}&untilDate={today:yyyy-MM-dd}&minAmount=80000&maxAmount=81000");
+        var list = await listResponse.Content.ReadFromJsonAsync<PagedResult<BillingRequestListItemDto>>(JsonOptions);
+
+        var csvResponse = await salesClient.GetAsync($"/api/billing-requests/export?search=Billing%20filter%20target&createdByMe=true&fromDate={today:yyyy-MM-dd}&untilDate={today:yyyy-MM-dd}&minAmount=80000&maxAmount=81000");
+        var csv = await csvResponse.Content.ReadAsStringAsync();
+
+        var olderRequestNumber = (await salesClient.GetFromJsonAsync<BillingRequestDetailDto>($"/api/billing-requests/{olderHighAmountId}", JsonOptions))!.RequestNumber;
+        var recentRequestNumber = (await salesClient.GetFromJsonAsync<BillingRequestDetailDto>($"/api/billing-requests/{recentHighAmountId}", JsonOptions))!.RequestNumber;
+        var lowAmountRequestNumber = (await salesClient.GetFromJsonAsync<BillingRequestDetailDto>($"/api/billing-requests/{recentLowAmountId}", JsonOptions))!.RequestNumber;
+
+        listResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        list!.Items.Should().ContainSingle(x => x.Id == recentHighAmountId);
+        csvResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        csv.Should().Contain(recentRequestNumber);
+        csv.Should().NotContain(olderRequestNumber);
+        csv.Should().NotContain(lowAmountRequestNumber);
+    }
+
     private static async Task<Guid> CreateSubmittedRequestAsync(HttpClient salesClient, decimal subtotal)
     {
         var id = await CreateRequestAsync(salesClient, subtotal);
@@ -303,13 +353,25 @@ public class BillingRequestEndpointTests
         return id;
     }
 
-    private static async Task<Guid> CreateRequestAsync(HttpClient client, decimal subtotal)
+    private static async Task<Guid> CreateRequestAsync(HttpClient client, decimal subtotal, string title = "API workflow request")
     {
-        var response = await client.PostAsJsonAsync("/api/billing-requests", NewRequest(subtotal, "API workflow request"));
+        var response = await client.PostAsJsonAsync("/api/billing-requests", NewRequest(subtotal, title));
         response.StatusCode.Should().Be(HttpStatusCode.Created);
 
         var body = await response.Content.ReadFromJsonAsync<CreateResponse>();
         return body!.Id;
+    }
+
+    private async Task SetBillingRequestCreatedAtAsync(Guid id, DateTime createdAtUtc)
+    {
+        using var scope = _fixture.Factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<FlowLedgerDbContext>();
+        var request = await dbContext.BillingRequests.SingleAsync(x => x.Id == id);
+
+        request.CreatedAtUtc = createdAtUtc;
+        request.UpdatedAtUtc = createdAtUtc;
+
+        await dbContext.SaveChangesAsync();
     }
 
     private static async Task AuthenticateAsync(HttpClient client, string email, string password)

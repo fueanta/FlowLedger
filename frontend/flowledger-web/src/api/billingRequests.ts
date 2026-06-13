@@ -9,6 +9,10 @@ export type BillingRequestQuery = {
   search?: string
   assignedToMe?: boolean
   createdByMe?: boolean
+  fromDate?: string
+  untilDate?: string
+  minAmount?: string
+  maxAmount?: string
   sortBy?: string
   sortDirection?: 'asc' | 'desc'
   page?: number

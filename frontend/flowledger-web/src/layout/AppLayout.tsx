@@ -5,6 +5,8 @@ import { Separator } from '../components/ui/separator'
 import { useAuth } from '../auth/useAuth'
 import { canCreateRequest } from '../lib/permissions'
 import { cn } from '../lib/utils'
+import { RouteTransition } from './RouteTransition'
+import { WorkQueueNavBadge } from './WorkQueueNavBadge'
 
 const navItems = [
   { to: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -50,7 +52,8 @@ export function AppLayout() {
                 }
               >
                 <item.icon className="h-4 w-4" aria-hidden="true" />
-                {item.label}
+                <span>{item.label}</span>
+                {item.to === '/app/work-queue' ? <WorkQueueNavBadge /> : null}
               </NavLink>
             ))}
           </nav>
@@ -88,7 +91,8 @@ export function AppLayout() {
                   }
                 >
                   <item.icon className="h-4 w-4" aria-hidden="true" />
-                  {item.label}
+                  <span>{item.label}</span>
+                  {item.to === '/app/work-queue' ? <WorkQueueNavBadge /> : null}
                 </NavLink>
               ))}
             </nav>
@@ -105,8 +109,10 @@ export function AppLayout() {
             </div>
           </div>
         </header>
-        <main className="min-w-0 px-4 py-6 print:p-0 lg:px-8">
-          <Outlet />
+        <main id="main-content" className="min-w-0 px-4 py-6 print:p-0 lg:px-8">
+          <RouteTransition>
+            <Outlet />
+          </RouteTransition>
         </main>
       </div>
     </div>

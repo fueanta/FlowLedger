@@ -2,7 +2,7 @@ namespace FlowLedger.Infrastructure.Common;
 
 public static class PagingQueryGuard
 {
-    private static readonly HashSet<int> AllowedPageSizes = [10, 25, 50, 100];
+    private static readonly HashSet<int> AllowedPageSizes = [1, 10, 25, 50, 100];
 
     public static int Page(int page)
     {
@@ -18,7 +18,7 @@ public static class PagingQueryGuard
     {
         if (!AllowedPageSizes.Contains(pageSize))
         {
-            throw new InvalidOperationException("Page size must be one of 10, 25, 50, or 100.");
+            throw new InvalidOperationException("Page size must be one of 1, 10, 25, 50, or 100.");
         }
 
         return pageSize;

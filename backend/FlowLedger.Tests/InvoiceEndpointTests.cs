@@ -8,7 +8,10 @@ using FlowLedger.Application.BillingRequests;
 using FlowLedger.Application.Common;
 using FlowLedger.Application.Invoices;
 using FlowLedger.Domain.Enums;
+using FlowLedger.Infrastructure.Persistence;
 using FlowLedger.Infrastructure.Persistence.SeedData;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace FlowLedger.Tests;
 
@@ -106,13 +109,46 @@ public class InvoiceEndpointTests
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
-    private async Task<Guid> CreateApprovedRequestAsync(HttpClient salesClient, decimal subtotal)
+    [Fact]
+    public async Task ListAndCsvExport_WithDateAndAmountFilters_ReturnMatchingInvoice()
+    {
+        using var salesClient = await _fixture.CreateAuthenticatedClientAsync(RoleName.Sales);
+        using var accountsClient = await _fixture.CreateAuthenticatedClientAsync(RoleName.Accounts);
+
+        var olderHighAmountRequestId = await CreateApprovedRequestAsync(salesClient, 70000m, "Invoice filter target");
+        var recentHighAmountRequestId = await CreateApprovedRequestAsync(salesClient, 70000m, "Invoice filter target");
+        var recentLowAmountRequestId = await CreateApprovedRequestAsync(salesClient, 40000m, "Invoice filter target");
+
+        var olderHighAmountInvoice = (await accountsClient.GetFromJsonAsync<BillingRequestDetailDto>($"/api/billing-requests/{olderHighAmountRequestId}", JsonOptions))!.Invoice!;
+        var recentHighAmountInvoice = (await accountsClient.GetFromJsonAsync<BillingRequestDetailDto>($"/api/billing-requests/{recentHighAmountRequestId}", JsonOptions))!.Invoice!;
+        var recentLowAmountInvoice = (await accountsClient.GetFromJsonAsync<BillingRequestDetailDto>($"/api/billing-requests/{recentLowAmountRequestId}", JsonOptions))!.Invoice!;
+
+        var today = DateTime.UtcNow.Date;
+        await SetInvoiceIssuedAtAsync(olderHighAmountInvoice.Id, today.AddDays(-10).AddHours(9));
+        await SetInvoiceIssuedAtAsync(recentHighAmountInvoice.Id, today.AddHours(9));
+        await SetInvoiceIssuedAtAsync(recentLowAmountInvoice.Id, today.AddHours(10));
+
+        var listResponse = await accountsClient.GetAsync($"/api/invoices?fromDate={today:yyyy-MM-dd}&untilDate={today:yyyy-MM-dd}&minAmount=80000&maxAmount=81000");
+        var list = await listResponse.Content.ReadFromJsonAsync<PagedResult<InvoiceListItemDto>>(JsonOptions);
+
+        var csvResponse = await accountsClient.GetAsync($"/api/invoices/export?fromDate={today:yyyy-MM-dd}&untilDate={today:yyyy-MM-dd}&minAmount=80000&maxAmount=81000");
+        var csv = await csvResponse.Content.ReadAsStringAsync();
+
+        listResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        list!.Items.Should().ContainSingle(x => x.Id == recentHighAmountInvoice.Id);
+        csvResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        csv.Should().Contain(recentHighAmountInvoice.InvoiceNumber);
+        csv.Should().NotContain(olderHighAmountInvoice.InvoiceNumber);
+        csv.Should().NotContain(recentLowAmountInvoice.InvoiceNumber);
+    }
+
+    private async Task<Guid> CreateApprovedRequestAsync(HttpClient salesClient, decimal subtotal, string title = "Invoice API request")
     {
         var createResponse = await salesClient.PostAsJsonAsync(
             "/api/billing-requests",
             new CreateBillingRequestDto(
                 FlowLedgerSeedData.FiberRetailCustomerId,
-                "Invoice API request",
+                title,
                 "Created from invoice integration test.",
                 [new CreateBillingRequestLineItemDto("Implementation services", 1, subtotal)]));
         createResponse.EnsureSuccessStatusCode();
@@ -128,6 +164,18 @@ public class InvoiceEndpointTests
         approveResponse.EnsureSuccessStatusCode();
 
         return body.Id;
+    }
+
+    private async Task SetInvoiceIssuedAtAsync(Guid invoiceId, DateTime issuedAtUtc)
+    {
+        using var scope = _fixture.Factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<FlowLedgerDbContext>();
+        var invoice = await dbContext.Invoices.SingleAsync(x => x.Id == invoiceId);
+
+        invoice.IssuedAtUtc = issuedAtUtc;
+        invoice.DueAtUtc = issuedAtUtc.AddDays(30);
+
+        await dbContext.SaveChangesAsync();
     }
 
     private sealed record CreateResponse(Guid Id);

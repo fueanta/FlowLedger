@@ -30,13 +30,15 @@ public sealed class BillingRequestsController : ControllerBase
         [FromQuery] string? search,
         [FromQuery] DateTime? fromDate,
         [FromQuery] DateTime? untilDate,
+        [FromQuery] decimal? minAmount,
+        [FromQuery] decimal? maxAmount,
         [FromQuery] string? sortBy,
         [FromQuery] string? sortDirection,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 25,
         CancellationToken cancellationToken = default)
     {
-        var query = new BillingRequestQuery(status, customerId, queue, assignedToMe, createdByMe, search, fromDate, untilDate, sortBy, sortDirection, page, pageSize);
+        var query = new BillingRequestQuery(status, customerId, queue, assignedToMe, createdByMe, search, fromDate, untilDate, minAmount, maxAmount, sortBy, sortDirection, page, pageSize);
 
         try
         {
@@ -58,11 +60,13 @@ public sealed class BillingRequestsController : ControllerBase
         [FromQuery] string? search,
         [FromQuery] DateTime? fromDate,
         [FromQuery] DateTime? untilDate,
+        [FromQuery] decimal? minAmount,
+        [FromQuery] decimal? maxAmount,
         [FromQuery] string? sortBy,
         [FromQuery] string? sortDirection,
         CancellationToken cancellationToken = default)
     {
-        var query = new BillingRequestQuery(status, customerId, queue, assignedToMe, createdByMe, search, fromDate, untilDate, sortBy, sortDirection);
+        var query = new BillingRequestQuery(status, customerId, queue, assignedToMe, createdByMe, search, fromDate, untilDate, minAmount, maxAmount, sortBy, sortDirection);
 
         try
         {
