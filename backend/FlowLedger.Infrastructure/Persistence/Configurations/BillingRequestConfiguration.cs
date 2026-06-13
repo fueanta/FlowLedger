@@ -9,7 +9,12 @@ public class BillingRequestConfiguration : IEntityTypeConfiguration<BillingReque
 {
     public void Configure(EntityTypeBuilder<BillingRequest> builder)
     {
-        builder.ToTable("BillingRequests");
+        builder.ToTable("BillingRequests", table => table.IsTemporal(temporal =>
+        {
+            temporal.UseHistoryTable("BillingRequestsHistory");
+            temporal.HasPeriodStart("ValidFrom");
+            temporal.HasPeriodEnd("ValidTo");
+        }));
 
         builder.HasKey(x => x.Id);
 

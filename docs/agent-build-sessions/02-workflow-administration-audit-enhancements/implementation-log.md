@@ -547,3 +547,66 @@ Read from the bottom first. Newest phase status, verification notes, and blocker
 - Optional CSV export for Users and Audit Logs was not added; required exports are green and optional exports remain available for backlog/prioritization.
 - Phase 7 will expand Audit Logs with temporal-table history and deeper audit administration.
 - Conventional Commit message when commit is requested: `feat: standardize data tables and csv export`
+
+## Phase 7: Temporal Tables and Audit Administration
+
+### Built
+
+- Enabled SQL Server temporal history for key workflow and administration tables:
+  - `Customers` with `CustomersHistory`
+  - `BillingRequests` with `BillingRequestsHistory`
+  - `Invoices` with `InvoicesHistory`
+  - `AppSettings` with `AppSettingsHistory`
+- Added EF Core migration `AddTemporalHistoryTables`.
+- Expanded audit-log filtering with:
+  - Entity type
+  - Action type
+  - Actor
+  - From date
+  - Until date
+- Added audit-log UI filters on the shared data-table page.
+- Added linked entity actions from audit rows to the related billing request, invoice, user list, or enrollment request list where applicable.
+- Added `docs/temporal-audit.md` to document the responsibility split:
+  - Temporal tables preserve row-level history for what changed and when.
+  - Audit logs preserve actor, workflow action, and business context for who did it and why.
+
+### Verification
+
+- Passed: full backend test suite through Docker SDK container with Docker socket and host override for Testcontainers.
+  - Command: `docker run --rm -e TESTCONTAINERS_RYUK_DISABLED=true -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -v "$PWD:/src" -v /Users/mutasim/.docker/run/docker.sock:/var/run/docker.sock -w /src/backend mcr.microsoft.com/dotnet/sdk:8.0-alpine sh -lc 'dotnet test FlowLedger.sln'`
+  - Result: 88 tests passed, 0 failed.
+- Passed: temporal migration integration tests.
+  - `MigrateAsync_ConfiguresTemporalTables` confirmed all four target tables are temporal.
+  - `MigrateAsync_WritesTemporalHistoryForTrackedTables` confirmed history rows are written for clients, billing requests, invoices, and app settings.
+- Passed: audit-log filter integration test.
+  - `AuditLogs_FilterByEntityActionActorAndDate_ReturnsMatchingRows` confirmed entity, action, actor, and date-range filtering.
+- Passed: frontend tests.
+  - Command: `cd frontend/flowledger-web && npm test -- --run`
+  - Result: 23 tests passed, 0 failed.
+- Passed: frontend lint.
+  - Command: `cd frontend/flowledger-web && npm run lint`
+  - Result: ESLint passed.
+- Passed: frontend production build.
+  - Command: `cd frontend/flowledger-web && npm run build`
+  - Result: TypeScript and Vite production build succeeded.
+  - Note: existing Vite chunk-size warning remains.
+- Passed: Docker Compose runtime smoke.
+  - Command: `docker compose up --build -d`
+  - Result: SQL Server became healthy, API started, frontend started.
+  - SQL smoke confirmed all temporal tables and expected history tables:
+    - `AppSettings` -> `AppSettingsHistory`
+    - `BillingRequests` -> `BillingRequestsHistory`
+    - `Customers` -> `CustomersHistory`
+    - `Invoices` -> `InvoicesHistory`
+  - API smoke confirmed audit-log filters returned a matching row.
+  - Frontend route smoke confirmed `/app/audit-logs` returned `200`.
+- Passed: Chromium audit-log UI smoke through temporary Playwright Docker container.
+  - Result:
+    - `audit logs UI smoke ok viewport=375`
+    - `audit logs UI smoke ok viewport=1440`
+  - Coverage: entity/action/actor/date filters, rendered linked entity action, and no page-level horizontal scroll.
+
+### Notes
+
+- Phase 7 is signed off.
+- Conventional Commit message when commit is requested: `feat: add temporal audit history`

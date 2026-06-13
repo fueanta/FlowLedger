@@ -41,6 +41,22 @@ public sealed class AuditLogService : IAuditLogService
             logs = logs.Where(x => x.ActionType == query.ActionType);
         }
 
+        var actor = PagingQueryGuard.Search(query.Actor);
+        if (actor is not null)
+        {
+            logs = logs.Where(x => x.ActorDisplayName.Contains(actor));
+        }
+
+        if (query.FromDate is not null)
+        {
+            logs = logs.Where(x => x.CreatedAtUtc >= query.FromDate);
+        }
+
+        if (query.UntilDate is not null)
+        {
+            logs = logs.Where(x => x.CreatedAtUtc <= query.UntilDate);
+        }
+
         var search = PagingQueryGuard.Search(query.Search);
         if (search is not null)
         {

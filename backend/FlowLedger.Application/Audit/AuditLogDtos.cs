@@ -21,6 +21,9 @@ public sealed record AuditLogQuery(
     string? Search = null,
     string? EntityType = null,
     AuditActionType? ActionType = null,
+    string? Actor = null,
+    DateTime? FromDate = null,
+    DateTime? UntilDate = null,
     string? SortBy = "createdAtUtc",
     string? SortDirection = "desc");
 

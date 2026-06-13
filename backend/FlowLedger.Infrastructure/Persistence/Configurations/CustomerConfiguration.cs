@@ -9,7 +9,12 @@ public class CustomerConfiguration : IEntityTypeConfiguration<Customer>
 {
     public void Configure(EntityTypeBuilder<Customer> builder)
     {
-        builder.ToTable("Customers");
+        builder.ToTable("Customers", table => table.IsTemporal(temporal =>
+        {
+            temporal.UseHistoryTable("CustomersHistory");
+            temporal.HasPeriodStart("ValidFrom");
+            temporal.HasPeriodEnd("ValidTo");
+        }));
 
         builder.HasKey(x => x.Id);
 

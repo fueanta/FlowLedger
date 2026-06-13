@@ -9,7 +9,12 @@ public class AppSettingConfiguration : IEntityTypeConfiguration<AppSetting>
 {
     public void Configure(EntityTypeBuilder<AppSetting> builder)
     {
-        builder.ToTable("AppSettings");
+        builder.ToTable("AppSettings", table => table.IsTemporal(temporal =>
+        {
+            temporal.UseHistoryTable("AppSettingsHistory");
+            temporal.HasPeriodStart("ValidFrom");
+            temporal.HasPeriodEnd("ValidTo");
+        }));
 
         builder.HasKey(x => x.Key);
 

@@ -7,6 +7,9 @@ export type AuditLogListParams = {
   search?: string
   entityType?: string
   actionType?: string
+  actor?: string
+  fromDate?: string
+  untilDate?: string
   sortBy?: string
   sortDirection?: 'asc' | 'desc'
 }

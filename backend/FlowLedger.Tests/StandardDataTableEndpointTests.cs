@@ -140,4 +140,20 @@ public class StandardDataTableEndpointTests
         result!.Items.Should().NotBeEmpty();
         result.Items.Should().OnlyContain(x => x.EntityNumber == null || x.EntityNumber.Contains("BR-2026"));
     }
+
+    [Fact]
+    public async Task AuditLogs_FilterByEntityActionActorAndDate_ReturnsMatchingRows()
+    {
+        using var client = await _fixture.CreateAuthenticatedClientAsync(RoleName.Admin);
+
+        var response = await client.GetAsync("/api/audit-logs?pageSize=10&entityType=BillingRequest&actionType=Created&actor=Sarah&fromDate=2000-01-01&untilDate=2100-01-01");
+        var result = await response.Content.ReadFromJsonAsync<PagedResult<AuditLogListItemDto>>(JsonOptions);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        result!.Items.Should().NotBeEmpty();
+        result.Items.Should().OnlyContain(x =>
+            x.EntityType == "BillingRequest" &&
+            x.ActionType == AuditActionType.Created &&
+            x.ActorDisplayName.Contains("Sarah"));
+    }
 }

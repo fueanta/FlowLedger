@@ -9,7 +9,12 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
 {
     public void Configure(EntityTypeBuilder<Invoice> builder)
     {
-        builder.ToTable("Invoices");
+        builder.ToTable("Invoices", table => table.IsTemporal(temporal =>
+        {
+            temporal.UseHistoryTable("InvoicesHistory");
+            temporal.HasPeriodStart("ValidFrom");
+            temporal.HasPeriodEnd("ValidTo");
+        }));
 
         builder.HasKey(x => x.Id);
 

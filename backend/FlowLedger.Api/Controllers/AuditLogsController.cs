@@ -26,11 +26,14 @@ public sealed class AuditLogsController : ControllerBase
         [FromQuery] string? search = null,
         [FromQuery] string? entityType = null,
         [FromQuery] AuditActionType? actionType = null,
+        [FromQuery] string? actor = null,
+        [FromQuery] DateTime? fromDate = null,
+        [FromQuery] DateTime? untilDate = null,
         [FromQuery] string? sortBy = "createdAtUtc",
         [FromQuery] string? sortDirection = "desc",
         CancellationToken cancellationToken = default)
     {
-        var query = new AuditLogQuery(page, pageSize, search, entityType, actionType, sortBy, sortDirection);
+        var query = new AuditLogQuery(page, pageSize, search, entityType, actionType, actor, fromDate, untilDate, sortBy, sortDirection);
         try
         {
             return Ok(await _auditLogService.GetAsync(query, User.ToCurrentUser(), cancellationToken));
