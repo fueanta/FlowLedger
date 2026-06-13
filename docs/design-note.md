@@ -13,7 +13,7 @@ Option 1: ERP Workflow Module.
 - Sales creates, edits, submits, and resubmits billing requests.
 - Accounts reviews submitted requests, approves low-value requests, rejects requests, and marks invoices paid.
 - Manager approves or rejects high-value requests.
-- Admin can view and perform operational workflow actions across roles.
+- Admin can view and perform operational workflow actions across roles, approve enrollment requests, manage users, and update billing settings.
 
 ## Workflow
 
@@ -29,11 +29,11 @@ Controllers authenticate requests, bind DTOs, and delegate to application servic
 
 ## Frontend design
 
-The UI is a compact internal operations tool: dashboard metrics, searchable tables, request form, request detail with action panel, invoice list/detail, and customer reference page. It uses Tailwind, shadcn-style primitives, TanStack Query, React Hook Form, Zod validation, Lucide icons, and Recharts.
+The UI is a compact internal operations tool: dashboard metrics, reusable paginated tables, request form, request detail with action panel, invoice list/detail with print/PDF actions, client administration, enrollment/user administration, settings, work queue, and audit logs. It uses Tailwind, shadcn-style primitives, TanStack Query, React Hook Form, Zod validation, Lucide icons, and Recharts.
 
 ## Data model
 
-Core entities are `User`, `Customer`, `BillingRequest`, `BillingRequestLineItem`, `Comment`, `AuditLog`, `Invoice`, and `AppSetting`. A billing request belongs to a customer and creator, has many line items/comments/audit logs, and can generate one invoice. `AppSetting` stores runtime configuration such as JWT access-token lifetime.
+Core entities are `User`, `EnrollmentRequest`, `UserPreference`, `Customer`, `BillingRequest`, `BillingRequestLineItem`, `Comment`, `AuditLog`, `Invoice`, and `AppSetting`. A billing request belongs to a customer and creator, has many line items/comments/audit logs, and can generate one invoice. `AppSetting` stores runtime configuration such as VAT, approval threshold, invoice due days, and JWT access-token lifetime. SQL Server temporal history is enabled for clients, billing requests, invoices, and settings.
 
 ## Security
 
@@ -41,7 +41,7 @@ The project uses mock login backed by seeded users, stored password hashes/salts
 
 ## Testing
 
-Backend unit tests cover workflow calculations and service rules. Integration tests use WebApplicationFactory and Testcontainers SQL Server for login, authentication, authorization, request creation/submission, approvals, invoice generation, payment marking, dashboard validation, and migrations. Frontend tests cover validation helpers, auth client behavior, permission helpers, and billing request calculations.
+Backend unit tests cover workflow calculations and service rules. Integration tests use WebApplicationFactory and Testcontainers SQL Server for login, authentication, authorization, request creation/submission, approvals, invoice generation, payment marking, dashboard validation, settings, enrollment, standardized tables, CSV export, PDF export, audit behavior, and migrations. Frontend tests cover validation helpers, auth client behavior, permission helpers, data tables, dashboard scope labels, and invoice detail actions.
 
 ## Tradeoffs
 
@@ -55,18 +55,20 @@ Backend unit tests cover workflow calculations and service rules. Integration te
 
 - Mock auth only.
 - No active JWT session revocation yet.
+- No endpoint rate limiting yet.
 - No notifications.
 - No file attachments.
 - No real payment integration.
-- No invoice PDF export.
+- Invoice PDF export uses a lightweight internal PDF writer; richer branded layouts are future work.
 
 ## Future improvements
 
 - Real identity provider.
 - Admin-driven session revocation.
+- Endpoint-specific rate limiting.
 - Email or in-app notifications.
 - Attachments.
-- PDF invoice export.
+- Richer branded invoice PDF layouts.
 - Advanced reporting.
 - Approval rules UI.
 - CI pipeline with build/test/Compose smoke verification.

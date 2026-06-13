@@ -3,7 +3,7 @@ import { Navigate, Outlet, RouterProvider, createBrowserRouter } from 'react-rou
 import { Toaster } from 'sonner'
 import { LoginPage } from './auth/LoginPage'
 import { RegisterPage } from './auth/RegisterPage'
-import { ProtectedRoute } from './auth/ProtectedRoute'
+import { ProtectedRoute, RoleRoute } from './auth/ProtectedRoute'
 import { AuthProvider } from './auth/AuthContext'
 import { AppLayout } from './layout/AppLayout'
 import { AuditLogsPage } from './pages/AuditLogsPage'
@@ -40,15 +40,43 @@ const router = createBrowserRouter([
           { path: 'dashboard', element: <DashboardPage /> },
           { path: 'work-queue', element: <MyWorkQueuePage /> },
           { path: 'requests', element: <RequestListPage /> },
-          { path: 'requests/new', element: <RequestFormPage /> },
-          { path: 'requests/:id/edit', element: <RequestFormPage /> },
+          {
+            path: 'requests/new',
+            element: (
+              <RoleRoute roles={['Sales', 'Admin']}>
+                <RequestFormPage />
+              </RoleRoute>
+            ),
+          },
+          {
+            path: 'requests/:id/edit',
+            element: (
+              <RoleRoute roles={['Sales', 'Admin']}>
+                <RequestFormPage />
+              </RoleRoute>
+            ),
+          },
           { path: 'requests/:id', element: <RequestDetailPage /> },
           { path: 'invoices', element: <InvoiceListPage /> },
           { path: 'invoices/:id', element: <InvoiceDetailPage /> },
           { path: 'clients', element: <ClientsPage /> },
           { path: 'customers', element: <Navigate to="/app/clients" replace /> },
-          { path: 'enrollment-requests', element: <EnrollmentRequestsPage /> },
-          { path: 'users', element: <UsersPage /> },
+          {
+            path: 'enrollment-requests',
+            element: (
+              <RoleRoute roles={['Admin']}>
+                <EnrollmentRequestsPage />
+              </RoleRoute>
+            ),
+          },
+          {
+            path: 'users',
+            element: (
+              <RoleRoute roles={['Admin']}>
+                <UsersPage />
+              </RoleRoute>
+            ),
+          },
           { path: 'audit-logs', element: <AuditLogsPage /> },
           { path: 'settings', element: <SettingsPage /> },
         ],

@@ -674,3 +674,71 @@ Read from the bottom first. Newest phase status, verification notes, and blocker
 
 - Phase 8 is signed off.
 - Conventional Commit message when commit is requested: `feat: add invoice pdf export`
+
+## Phase 9: Navigation, Demo Journey, README, Session Flow
+
+### Built
+
+- Added role-aware frontend route guard:
+  - Admin-only guard for `/app/enrollment-requests`.
+  - Admin-only guard for `/app/users`.
+  - Sales/Admin guard for `/app/requests/new`.
+  - Sales/Admin guard for `/app/requests/:id/edit`.
+- Kept `/app/settings` available to internal users because settings are read-all and Admin-write.
+- Added frontend guard tests for allowed and redirected roles.
+- Updated README with Session 02 shipped features, APIs, data model notes, run notes, signed-off session links, known limitations, and rate-limiting backlog.
+- Updated `docs/design-note.md` so limitations and future work match the current product state.
+- Generated Session 02 behavior-flow assets:
+  - `session-flow.svg`
+  - `session-flow.png`
+- Confirmed `docs/backlog.md` keeps rate limiting as backlog for login, registration, enrollment decisions, workflow mutations, CSV export, and PDF export.
+
+### Verification
+
+- Passed: full backend test suite through Docker SDK container with Docker socket and host override for Testcontainers.
+  - Command: `docker run --rm -e TESTCONTAINERS_RYUK_DISABLED=true -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -v "$PWD:/src" -v /Users/mutasim/.docker/run/docker.sock:/var/run/docker.sock -w /src/backend mcr.microsoft.com/dotnet/sdk:8.0-alpine sh -lc 'dotnet test FlowLedger.sln'`
+  - Result: 90 tests passed, 0 failed.
+- Passed: frontend tests.
+  - Command: `cd frontend/flowledger-web && npm test -- --run`
+  - Result: 26 tests passed, 0 failed.
+- Passed: frontend lint.
+  - Command: `cd frontend/flowledger-web && npm run lint`
+  - Result: ESLint passed.
+- Passed: frontend production build.
+  - Command: `cd frontend/flowledger-web && npm run build`
+  - Result: TypeScript and Vite production build succeeded.
+  - Note: existing Vite chunk-size warning remains.
+- Passed: Docker Compose runtime smoke.
+  - Command: `docker compose up --build -d`
+  - Result: SQL Server became healthy, API started, frontend started.
+- Passed: final API journey smoke.
+  - Registered a new user.
+  - Admin approved enrollment.
+  - Sales created an active client.
+  - Sales created and submitted a low-value request.
+  - Accounts approved the low-value request and generated invoice.
+  - Accounts marked the invoice paid.
+  - Sales created and submitted a high-value request.
+  - Accounts approval routed the request to the Manager queue.
+  - Manager approved the request and generated invoice.
+  - Invoice PDF endpoint returned valid PDF bytes.
+  - Audit logs existed for the workflow transitions.
+  - Billing Requests, Invoices, Clients, Users, Enrollment Requests, and Audit Logs returned paged table payloads.
+  - Required CSV exports returned CSV content.
+  - Default 1-month dashboard showed activity.
+  - Current Workload metrics stayed stable across 1-month and 6-month periods.
+  - Smoke output: `phase9 final API journey ok enrollment=phase9.1781356904842@flowledger.local client=721d424f-efb3-4567-9566-aea932f5f776 low=BR-2026-0020 high=BR-2026-0021 pdfBytes=1734`.
+- Passed: Chromium route/browser smoke through temporary Playwright Docker container.
+  - Result:
+    - `phase9 route/browser smoke ok viewport=375`
+    - `phase9 route/browser smoke ok viewport=1440`
+  - Coverage: Sales redirect away from Admin Users route, Admin access to Users route, Audit Logs route rendering, dashboard workload note, and no page-level horizontal scroll.
+- Passed: session-flow image visual check.
+  - Rendered `session-flow.svg` to 1800x1120 PNG through a temporary Chromium container.
+  - Opened `session-flow.png` and confirmed layout/readability.
+
+### Notes
+
+- Phase 9 is signed off.
+- Session 02 is signed off through Phase 9.
+- Conventional Commit message when commit is requested: `docs: sign off workflow admin session`

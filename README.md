@@ -8,6 +8,7 @@ FlowLedger is an ERP-style billing approval and invoice workflow module. Sales c
 - React Vite TypeScript frontend with Tailwind, shadcn-style components, TanStack Query, Axios, React Hook Form, Zod, Lucide, and Recharts.
 - JWT login with seeded demo users and role-based API/UI behavior.
 - Billing request create, edit, submit, approve, reject, comment, invoice generation, payment marking, dashboard, and audit timeline.
+- Session 02 workflow enhancements: client administration, user enrollment/admin, configurable billing settings, work queues, user preferences, standardized paginated tables, CSV exports, audit-log filtering, SQL Server temporal history, and invoice print/PDF export.
 
 ## Selected option
 
@@ -86,7 +87,10 @@ Set `ConnectionStrings__DefaultConnection`, `Jwt__Key`, and the `SeedUsers__*Pas
 3. Accounts approves a high-value request, which moves to Manager approval.
 4. Manager approves the high-value request, which generates an issued invoice.
 5. Accounts marks an issued invoice as paid.
-6. Accounts or Manager rejects a request, and Sales revises and resubmits it.
+6. Users can request access; Admin approves or rejects enrollment and manages users.
+7. Accounts or Manager rejects a request, and Sales revises and resubmits it.
+8. Admin configures VAT, approval threshold, invoice due days, and JWT lifetime.
+9. List pages share server-side pagination, search, sorting, page-size preferences, and CSV export where required.
 
 ## Architecture overview
 
@@ -109,37 +113,50 @@ frontend/flowledger-web/src/api/         API modules
 frontend/flowledger-web/src/auth/        Login and auth context
 frontend/flowledger-web/src/components/  Shared components and UI primitives
 frontend/flowledger-web/src/layout/      App shell
-frontend/flowledger-web/src/pages/       Dashboard, requests, invoices, customers, settings
+frontend/flowledger-web/src/pages/       Dashboard, work queue, requests, invoices, clients, users, enrollment, audit, settings
 frontend/flowledger-web/src/lib/         API client, permissions, formatting
 ```
 
 ## Data model overview
 
-Main entities are `User`, `Customer`, `BillingRequest`, `BillingRequestLineItem`, `Comment`, `AuditLog`, `Invoice`, and `AppSetting`. Billing requests own line items, comments, audit logs, and at most one invoice. `AppSetting` currently stores configurable JWT access-token lifetime.
+Main entities are `User`, `EnrollmentRequest`, `UserPreference`, `Customer`, `BillingRequest`, `BillingRequestLineItem`, `Comment`, `AuditLog`, `Invoice`, and `AppSetting`. Billing requests own line items, comments, audit logs, and at most one invoice. `AppSetting` stores runtime configuration such as VAT percentage, manager approval threshold, invoice due days, and JWT access-token lifetime. SQL Server temporal history is enabled for clients, billing requests, invoices, and settings.
 
 ## Agent build sessions
 
 Build-session artifacts are kept under `docs/agent-build-sessions/` so build plans, implementation logs, and generated behaviour snapshots stay separate from general project docs.
 
-Current signed-off session:
+Signed-off sessions:
 
 - `docs/agent-build-sessions/01-initial-flowledger-build/erp_workflow_build_plan.md`
 - `docs/agent-build-sessions/01-initial-flowledger-build/implementation-log.md`
 - `docs/agent-build-sessions/01-initial-flowledger-build/session-flow.png`
-
-![FlowLedger session 01 behaviour flow](docs/agent-build-sessions/01-initial-flowledger-build/session-flow.png)
-
-Planned enhancement session:
-
 - `docs/agent-build-sessions/02-workflow-administration-audit-enhancements/workflow_admin_audit_enhancements_plan.md`
 - `docs/agent-build-sessions/02-workflow-administration-audit-enhancements/implementation-log.md`
+- `docs/agent-build-sessions/02-workflow-administration-audit-enhancements/session-flow.png`
+
+![FlowLedger session 02 behaviour flow](docs/agent-build-sessions/02-workflow-administration-audit-enhancements/session-flow.png)
 
 ## API overview
 
 - `POST /api/auth/login`
 - `GET /api/auth/me`
-- `GET /api/customers`
+- `POST /api/enrollment-requests`
+- `GET /api/enrollment-requests`
+- `POST /api/enrollment-requests/{id}/approve`
+- `POST /api/enrollment-requests/{id}/reject`
+- `GET /api/users`
+- `POST /api/users/{id}/activate`
+- `POST /api/users/{id}/deactivate`
+- `PUT /api/users/{id}/role`
+- `GET /api/preferences/mine`
+- `PUT /api/preferences/mine`
+- `GET /api/clients`
+- `POST /api/clients`
+- `PUT /api/clients/{id}`
+- `POST /api/clients/{id}/archive`
+- `GET /api/clients/export`
 - `GET /api/billing-requests`
+- `GET /api/billing-requests/export`
 - `POST /api/billing-requests`
 - `GET /api/billing-requests/{id}`
 - `PUT /api/billing-requests/{id}`
@@ -148,8 +165,14 @@ Planned enhancement session:
 - `POST /api/billing-requests/{id}/reject`
 - `POST /api/billing-requests/{id}/comments`
 - `GET /api/invoices`
+- `GET /api/invoices/export`
 - `GET /api/invoices/{id}`
+- `GET /api/invoices/{id}/pdf`
 - `POST /api/invoices/{id}/mark-paid`
+- `GET /api/work-queue`
+- `GET /api/audit-logs`
+- `GET /api/settings`
+- `PUT /api/settings`
 - `GET /api/dashboard/summary?periodMonths=1`
 
 Swagger is available at `http://localhost:8080/swagger` when the API is running.
@@ -183,8 +206,8 @@ docker run --rm -e TESTCONTAINERS_RYUK_DISABLED=true -e TESTCONTAINERS_HOST_OVER
 - Mock seeded-user login instead of a real identity provider.
 - JWT revocation is not implemented yet; see `docs/backlog.md`.
 - Rate limiting is not implemented yet; future hardening should cover login, registration, workflow mutations, CSV export, and PDF export endpoints.
-- No file attachments, email notifications, payment gateway, or PDF export.
-- No admin UI for changing approval thresholds or app settings.
+- No file attachments, email notifications, payment gateway, or accounting ledger integration.
+- Optional CSV export for Users and Audit Logs is not implemented; required CSV exports for Billing Requests, Invoices, and Clients are implemented.
 - Dashboard reporting is intentionally compact for the assignment scope.
 
 ## What I would improve with more time
@@ -192,8 +215,8 @@ docker run --rm -e TESTCONTAINERS_RYUK_DISABLED=true -e TESTCONTAINERS_HOST_OVER
 - Add real identity provider integration and active session revocation.
 - Add endpoint-specific rate limiting for auth, enrollment, workflow, and export actions.
 - Add notification delivery for assigned approvals and rejections.
-- Add attachments and generated invoice PDF export.
-- Add configurable approval rules UI.
+- Add attachments and richer generated invoice layouts if the billing document needs branding or multi-line invoice detail.
+- Add advanced approval-rule modeling beyond the current configurable threshold.
 - Add route-level frontend code splitting if bundle size matters.
 - Add CI pipeline with Docker Compose smoke tests.
 

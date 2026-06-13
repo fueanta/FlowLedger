@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1120" viewBox="0 0 1800 1120">
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#334155"/>
+    </marker>
+    <style>
+      .bg { fill: #f8fafc; }
+      .title { font: 700 40px Helvetica, Arial, sans-serif; fill: #0f172a; }
+      .subtitle { font: 400 20px Helvetica, Arial, sans-serif; fill: #475569; }
+      .lane { font: 700 20px Helvetica, Arial, sans-serif; fill: #334155; }
+      .box { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; rx: 12; }
+      .sales { fill: #eff6ff; stroke: #2563eb; }
+      .admin { fill: #f5f3ff; stroke: #7c3aed; }
+      .accounts { fill: #fefce8; stroke: #ca8a04; }
+      .manager { fill: #fff7ed; stroke: #ea580c; }
+      .system { fill: #ecfdf5; stroke: #16a34a; }
+      .data { fill: #f0fdfa; stroke: #0f766e; }
+      .label { font: 700 18px Helvetica, Arial, sans-serif; fill: #0f172a; }
+      .small { font: 400 15px Helvetica, Arial, sans-serif; fill: #475569; }
+      .tiny { font: 400 13px Helvetica, Arial, sans-serif; fill: #64748b; }
+      .line { stroke: #334155; stroke-width: 2.5; fill: none; marker-end: url(#arrow); }
+      .dash { stroke: #64748b; stroke-width: 2; stroke-dasharray: 8 8; fill: none; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1800" height="1120"/>
+  <text class="title" x="80" y="76">FlowLedger Session 02 Behaviour Flow</text>
+  <text class="subtitle" x="80" y="112">Workflow administration, audit history, standardized tables, CSV export, preferences, recent demo data, and invoice PDF export.</text>
+
+  <text class="lane" x="92" y="185">Public / Admin</text>
+  <text class="lane" x="390" y="185">Sales</text>
+  <text class="lane" x="700" y="185">Accounts</text>
+  <text class="lane" x="1015" y="185">Manager</text>
+  <text class="lane" x="1315" y="185">System / Evidence</text>
+
+  <rect class="box admin" x="80" y="220" width="240" height="82"/>
+  <text class="label" x="108" y="252">Register Access</text>
+  <text class="small" x="108" y="278">Pending enrollment request</text>
+
+  <rect class="box admin" x="80" y="350" width="240" height="98"/>
+  <text class="label" x="108" y="382">Admin Reviews</text>
+  <text class="small" x="108" y="408">Approve, reject, assign role</text>
+  <text class="tiny" x="108" y="430">Users + enrollment tables</text>
+
+  <rect class="box admin" x="80" y="505" width="240" height="98"/>
+  <text class="label" x="108" y="537">Admin Settings</text>
+  <text class="small" x="108" y="563">VAT, threshold, due days</text>
+  <text class="tiny" x="108" y="585">Temporal history enabled</text>
+
+  <rect class="box sales" x="370" y="220" width="250" height="82"/>
+  <text class="label" x="398" y="252">Sales Login</text>
+  <text class="small" x="398" y="278">Preference landing page</text>
+
+  <rect class="box sales" x="370" y="350" width="250" height="98"/>
+  <text class="label" x="398" y="382">Create Client</text>
+  <text class="small" x="398" y="408">Active client record</text>
+  <text class="tiny" x="398" y="430">Client CSV export</text>
+
+  <rect class="box sales" x="370" y="505" width="250" height="98"/>
+  <text class="label" x="398" y="537">Create Request</text>
+  <text class="small" x="398" y="563">Line items + settings VAT</text>
+  <text class="tiny" x="398" y="585">Recent seed dates visible</text>
+
+  <rect class="box sales" x="370" y="660" width="250" height="82"/>
+  <text class="label" x="398" y="692">Submit</text>
+  <text class="small" x="398" y="718">Assigned to Accounts queue</text>
+
+  <rect class="box accounts" x="680" y="505" width="250" height="98"/>
+  <text class="label" x="708" y="537">Accounts Queue</text>
+  <text class="small" x="708" y="563">My Work + audit-enforced save</text>
+  <text class="tiny" x="708" y="585">Low-value approve</text>
+
+  <rect class="box accounts" x="680" y="660" width="250" height="98"/>
+  <text class="label" x="708" y="692">Accounts Approves</text>
+  <text class="small" x="708" y="718">Invoice generated or routed</text>
+  <text class="tiny" x="708" y="740">High value goes to Manager</text>
+
+  <rect class="box manager" x="995" y="660" width="250" height="98"/>
+  <text class="label" x="1023" y="692">Manager Queue</text>
+  <text class="small" x="1023" y="718">High-value approvals</text>
+  <text class="tiny" x="1023" y="740">Approve or reject</text>
+
+  <rect class="box system" x="1300" y="350" width="300" height="98"/>
+  <text class="label" x="1328" y="382">Standard Tables</text>
+  <text class="small" x="1328" y="408">Search, sort, pagination</text>
+  <text class="tiny" x="1328" y="430">Requests, invoices, clients, users, audit</text>
+
+  <rect class="box system" x="1300" y="505" width="300" height="98"/>
+  <text class="label" x="1328" y="537">Exports</text>
+  <text class="small" x="1328" y="563">CSV respects filters</text>
+  <text class="tiny" x="1328" y="585">Invoice PDF attachment</text>
+
+  <rect class="box system" x="1300" y="660" width="300" height="98"/>
+  <text class="label" x="1328" y="692">Invoice Lifecycle</text>
+  <text class="small" x="1328" y="718">Issued, print/download PDF</text>
+  <text class="tiny" x="1328" y="740">Accounts/Admin mark paid</text>
+
+  <rect class="box data" x="1300" y="815" width="300" height="106"/>
+  <text class="label" x="1328" y="847">Audit + Temporal</text>
+  <text class="small" x="1328" y="873">Who did it and why</text>
+  <text class="small" x="1328" y="895">What changed and when</text>
+
+  <rect class="box data" x="370" y="850" width="560" height="106"/>
+  <text class="label" x="398" y="882">Dashboard Evidence</text>
+  <text class="small" x="398" y="908">Default 1-month demo data is populated</text>
+  <text class="small" x="398" y="932">Current workload metrics are not period-filtered</text>
+
+  <path class="line" d="M200 302 L200 345"/>
+  <path class="line" d="M320 399 L365 399"/>
+  <path class="line" d="M495 302 L495 345"/>
+  <path class="line" d="M495 448 L495 500"/>
+  <path class="line" d="M495 603 L495 655"/>
+  <path class="line" d="M620 701 L675 701"/>
+  <path class="line" d="M805 603 L805 655"/>
+  <path class="line" d="M930 709 L990 709"/>
+  <path class="line" d="M1245 709 L1295 709"/>
+  <path class="line" d="M930 709 C1080 545 1185 546 1295 554"/>
+  <path class="line" d="M1450 603 L1450 655"/>
+  <path class="line" d="M1450 758 L1450 810"/>
+  <path class="dash" d="M320 554 C350 510 350 420 370 399"/>
+  <path class="dash" d="M620 399 C860 330 1120 330 1295 391"/>
+  <path class="dash" d="M620 585 C900 630 1095 620 1295 565"/>
+  <path class="dash" d="M930 930 C1080 970 1225 940 1295 895"/>
+
+  <text class="tiny" x="940" y="683">High value</text>
+  <text class="tiny" x="1010" y="560">Low value</text>
+  <text class="tiny" x="1490" y="775">Audit rows, history tables</text>
+  <text class="tiny" x="84" y="1045">Rate limiting remains backlog: login, registration, enrollment decisions, workflow mutations, CSV export, PDF export.</text>
+</svg>
