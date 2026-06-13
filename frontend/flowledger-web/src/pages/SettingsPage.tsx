@@ -142,16 +142,6 @@ export function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Architecture Summary</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm leading-6 text-slate-700">
-            <p>Frontend is a React SPA using role-aware routes, TanStack Query, Axios, React Hook Form, Zod, Tailwind, and Recharts.</p>
-            <p>Backend controllers call application services. Services own workflow permissions, settings, and status transitions. EF Core persists SQL Server data.</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
             <CardTitle>Demo Access</CardTitle>
           </CardHeader>
           <CardContent>

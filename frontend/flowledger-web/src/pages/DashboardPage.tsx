@@ -91,18 +91,16 @@ export function DashboardPage() {
             <CardTitle>Status Breakdown</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={summary.statusBreakdown} dataKey="count" nameKey="status" innerRadius={60} outerRadius={90} paddingAngle={2}>
-                    {summary.statusBreakdown.map((entry, index) => (
-                      <Cell key={entry.status} fill={chartColors[index % chartColors.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value, name) => [value, formatStatus(String(name) as never)]} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+            <ResponsiveContainer width="100%" height={288}>
+              <PieChart>
+                <Pie data={summary.statusBreakdown} dataKey="count" nameKey="status" innerRadius={60} outerRadius={90} paddingAngle={2}>
+                  {summary.statusBreakdown.map((entry, index) => (
+                    <Cell key={entry.status} fill={chartColors[index % chartColors.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value, name) => [value, formatStatus(String(name) as never)]} />
+              </PieChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
 
@@ -111,17 +109,15 @@ export function DashboardPage() {
             <CardTitle>Invoice Trend</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={summary.monthlyInvoiceTrend}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="month" />
-                  <YAxis tickFormatter={(value) => `${Number(value) / 1000}k`} />
-                  <Tooltip formatter={(value) => formatMoney(Number(value))} />
-                  <Bar dataKey="amount" fill="#1e3a8a" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <ResponsiveContainer width="100%" height={288}>
+              <BarChart data={summary.monthlyInvoiceTrend}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="month" />
+                <YAxis tickFormatter={(value) => `${Number(value) / 1000}k`} />
+                <Tooltip formatter={(value) => formatMoney(Number(value))} />
+                <Bar dataKey="amount" fill="#1e3a8a" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
       </section>
@@ -155,17 +151,15 @@ export function DashboardPage() {
             <CardDescription>Current pending requests only. Not filtered by period.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={summary.agingBuckets} layout="vertical" margin={{ left: 16 }}>
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                  <XAxis type="number" allowDecimals={false} />
-                  <YAxis dataKey="label" type="category" width={70} />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#ca8a04" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <ResponsiveContainer width="100%" height={288}>
+              <BarChart data={summary.agingBuckets} layout="vertical" margin={{ left: 16 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                <XAxis type="number" allowDecimals={false} />
+                <YAxis dataKey="label" type="category" width={70} />
+                <Tooltip />
+                <Bar dataKey="count" fill="#ca8a04" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
 
