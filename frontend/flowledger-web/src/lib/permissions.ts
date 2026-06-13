@@ -35,3 +35,15 @@ export function canUpdateRequest(role: Role, status: BillingRequestStatus) {
 export function canMarkInvoicePaid(role: Role, invoiceStatus: InvoiceStatus) {
   return (role === 'Accounts' || role === 'Admin') && invoiceStatus === 'Issued'
 }
+
+export function canCreateClient(role: Role) {
+  return role === 'Sales' || role === 'Accounts' || role === 'Admin'
+}
+
+export function canEditClient(role: Role) {
+  return role === 'Accounts' || role === 'Admin'
+}
+
+export function canArchiveClient(role: Role) {
+  return role === 'Admin'
+}

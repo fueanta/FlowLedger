@@ -19,8 +19,10 @@ internal static class TestAuthSeedData
             PasswordHash = passwordHash,
             PasswordSalt = passwordSalt,
             Role = RoleName.Sales,
+            Status = UserStatus.Active,
             IsActive = true,
-            CreatedAtUtc = new DateTime(2026, 6, 12, 0, 0, 0, DateTimeKind.Utc)
+            CreatedAtUtc = new DateTime(2026, 6, 12, 0, 0, 0, DateTimeKind.Utc),
+            UpdatedAtUtc = new DateTime(2026, 6, 12, 0, 0, 0, DateTimeKind.Utc)
         };
     }
 }

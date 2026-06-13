@@ -1,4 +1,5 @@
 using FlowLedger.Application.Auth;
+using FlowLedger.Domain.Enums;
 using FlowLedger.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -29,9 +30,9 @@ public sealed class AuthService : IAuthService
 
         var normalizedEmail = request.Email.Trim().ToLowerInvariant();
         var user = await _dbContext.Users
-            .SingleOrDefaultAsync(x => x.Email == normalizedEmail && x.IsActive, cancellationToken);
+            .SingleOrDefaultAsync(x => x.Email == normalizedEmail, cancellationToken);
 
-        if (user is null)
+        if (user is null || !user.IsActive || user.Status != UserStatus.Active)
         {
             throw new UnauthorizedAccessException("Invalid email or password.");
         }
@@ -41,13 +42,17 @@ public sealed class AuthService : IAuthService
             throw new UnauthorizedAccessException("Invalid email or password.");
         }
 
+        user.LastLoginAtUtc = DateTime.UtcNow;
+        user.UpdatedAtUtc = user.LastLoginAtUtc.Value;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
         return new LoginResponseDto(await _jwtTokenGenerator.GenerateTokenAsync(user, cancellationToken), user.ToDto());
     }
 
     public async Task<UserDto> GetCurrentUserAsync(Guid userId, CancellationToken cancellationToken)
     {
         var user = await _dbContext.Users
-            .SingleOrDefaultAsync(x => x.Id == userId && x.IsActive, cancellationToken);
+            .SingleOrDefaultAsync(x => x.Id == userId && x.IsActive && x.Status == UserStatus.Active, cancellationToken);
 
         if (user is null)
         {

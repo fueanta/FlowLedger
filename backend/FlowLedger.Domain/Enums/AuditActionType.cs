@@ -11,5 +11,10 @@ public enum AuditActionType
     InvoiceGenerated = 7,
     PaymentMarked = 8,
     Assigned = 9,
-    Cancelled = 10
+    Cancelled = 10,
+    EnrollmentApproved = 11,
+    EnrollmentRejected = 12,
+    UserActivated = 13,
+    UserDeactivated = 14,
+    UserRoleChanged = 15
 }

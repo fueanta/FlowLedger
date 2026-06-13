@@ -14,11 +14,13 @@ public class Invoice
     public Customer Customer { get; set; } = null!;
 
     public decimal SubtotalAmount { get; set; }
+    public decimal VatPercentage { get; set; }
     public decimal VatAmount { get; set; }
     public decimal TotalAmount { get; set; }
     public InvoiceStatus Status { get; set; }
 
     public DateTime IssuedAtUtc { get; set; }
+    public int DueDays { get; set; }
     public DateTime DueAtUtc { get; set; }
     public DateTime? PaidAtUtc { get; set; }
 }

@@ -1,7 +1,6 @@
-import { apiClient } from '../lib/apiClient'
-import type { Customer } from '../types'
+import { getActiveClients, toLegacyCustomer } from './clients'
 
 export async function getCustomers() {
-  const response = await apiClient.get<Customer[]>('/customers')
-  return response.data
+  const clients = await getActiveClients()
+  return clients.map(toLegacyCustomer)
 }

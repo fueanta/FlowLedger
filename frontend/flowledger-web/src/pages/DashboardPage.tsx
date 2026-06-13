@@ -7,7 +7,7 @@ import { AuditTimeline } from '../components/AuditTimeline'
 import { MetricCard } from '../components/MetricCard'
 import { PageHeader } from '../components/PageHeader'
 import { ErrorState, LoadingBlock } from '../components/StateViews'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Select } from '../components/ui/select'
 import { formatMoney, formatStatus } from '../lib/format'
 
@@ -46,7 +46,18 @@ export function DashboardPage() {
       <PageHeader
         title="Dashboard"
         description="Track request volume, pending approvals, invoice value, aging, and recent workflow activity."
-        actions={
+      />
+
+      <section aria-labelledby="period-activity-title">
+        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h2 id="period-activity-title" className="text-lg font-semibold tracking-normal text-slate-950">
+              Period Activity
+            </h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Filtered by selected period: {formatDateOnly(summary.period.startUtc)} to {formatDateOnly(summary.period.endUtc)}.
+            </p>
+          </div>
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium text-slate-700" htmlFor="dashboard-period">
               Period
@@ -64,14 +75,14 @@ export function DashboardPage() {
               ))}
             </Select>
           </div>
-        }
-      />
+        </div>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label="Dashboard metrics">
-        <MetricCard label="Requests in period" value={String(summary.totalRequests)} hint="Filtered by selected period" icon={FileText} />
-        <MetricCard label="Accounts review" value={String(summary.pendingAccountsReview)} hint="Current pending work" icon={Clock} />
-        <MetricCard label="Manager approvals" value={String(summary.pendingManagerApproval)} hint="High-value queue" icon={CheckCircle2} />
-        <MetricCard label="Paid invoice value" value={formatMoney(summary.paidInvoiceAmount)} hint="Paid in selected period" icon={ReceiptText} />
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label="Period activity metrics">
+          <MetricCard label="Requests in period" value={String(summary.totalRequests)} hint="Created in selected period" scope="Period" icon={FileText} />
+          <MetricCard label="Approved in period" value={String(summary.approvedThisMonth)} hint="Approved in selected period" scope="Period" icon={CheckCircle2} />
+          <MetricCard label="Paid invoice value" value={formatMoney(summary.paidInvoiceAmount)} hint="Paid in selected period" scope="Period" icon={ReceiptText} />
+          <MetricCard label="Issued invoice value" value={formatMoney(summary.totalInvoiceAmount)} hint="Issued in selected period" scope="Period" icon={TrendingUp} />
+        </div>
       </section>
 
       <section className="mt-6 grid gap-4 xl:grid-cols-3">
@@ -115,10 +126,33 @@ export function DashboardPage() {
         </Card>
       </section>
 
+      <section className="mt-8" aria-labelledby="current-workload-title">
+        <div className="mb-4">
+          <h2 id="current-workload-title" className="text-lg font-semibold tracking-normal text-slate-950">
+            Current Workload
+          </h2>
+          <p className="mt-1 text-sm text-slate-600">Current workload is not filtered by period.</p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label="Current workload metrics">
+          <MetricCard label="Accounts review" value={String(summary.pendingAccountsReview)} hint="Current pending work" scope="Current" icon={Clock} />
+          <MetricCard label="Manager approvals" value={String(summary.pendingManagerApproval)} hint="Current high-value queue" scope="Current" icon={CheckCircle2} />
+          <MetricCard label="Rejected in period" value={String(summary.rejectedCount)} hint="Rejected in selected period" scope="Period" icon={FileText} />
+          <MetricCard
+            label="Avg approval hours"
+            value={String(summary.averageApprovalHours)}
+            hint="Approved in selected period"
+            scope="Period"
+            icon={TrendingUp}
+          />
+        </div>
+      </section>
+
       <section className="mt-6 grid gap-4 xl:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle>Aging Buckets</CardTitle>
+            <CardDescription>Current pending requests only. Not filtered by period.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-72">
@@ -137,19 +171,22 @@ export function DashboardPage() {
 
         <Card className="xl:col-span-2">
           <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
+            <CardTitle>Recent Activity in Period</CardTitle>
+            <CardDescription>Workflow audit events within selected period.</CardDescription>
           </CardHeader>
           <CardContent>
             <AuditTimeline items={summary.recentActivity} />
           </CardContent>
         </Card>
       </section>
-
-      <section className="mt-6 grid gap-4 md:grid-cols-3">
-        <MetricCard label="Total invoice value" value={formatMoney(summary.totalInvoiceAmount)} hint="Issued in selected period" icon={TrendingUp} />
-        <MetricCard label="Approved this month" value={String(summary.approvedThisMonth)} hint="Requests approved recently" icon={CheckCircle2} />
-        <MetricCard label="Rejected in period" value={String(summary.rejectedCount)} hint="Needs revision attention" icon={FileText} />
-      </section>
     </>
   )
+}
+
+function formatDateOnly(value: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date(value))
 }

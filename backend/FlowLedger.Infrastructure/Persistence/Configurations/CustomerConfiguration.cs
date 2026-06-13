@@ -17,17 +17,33 @@ public class CustomerConfiguration : IEntityTypeConfiguration<Customer>
             .HasMaxLength(200)
             .IsRequired();
 
+        builder.Property(x => x.ContactPerson)
+            .HasMaxLength(160)
+            .IsRequired();
+
         builder.Property(x => x.ContactEmail)
-            .HasMaxLength(256)
+            .HasMaxLength(254)
             .IsRequired();
 
         builder.Property(x => x.Phone)
-            .HasMaxLength(50)
-            .IsRequired();
+            .HasMaxLength(40)
+            .IsRequired(false);
 
         builder.Property(x => x.BillingAddress)
             .HasMaxLength(500)
             .IsRequired();
+
+        builder.Property(x => x.TaxIdentifier)
+            .HasMaxLength(80)
+            .IsRequired(false);
+
+        builder.Property(x => x.Status)
+            .HasConversion<int>()
+            .IsRequired();
+
+        builder.HasIndex(x => x.Name);
+        builder.HasIndex(x => x.ContactEmail);
+        builder.HasIndex(x => x.Status);
 
         builder.HasData(FlowLedgerSeedData.Customers);
     }

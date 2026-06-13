@@ -48,6 +48,24 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                             Key = "Jwt.AccessTokenMinutes",
                             Description = "Access token lifetime in minutes.",
                             Value = "30"
+                        },
+                        new
+                        {
+                            Key = "Billing.VatPercentage",
+                            Description = "VAT percentage used for new billing request totals.",
+                            Value = "15"
+                        },
+                        new
+                        {
+                            Key = "Billing.ManagerApprovalThreshold",
+                            Description = "Total amount above which Accounts approval routes to Management.",
+                            Value = "100000"
+                        },
+                        new
+                        {
+                            Key = "Billing.InvoiceDueDays",
+                            Description = "Number of days after issue date used for new invoice due dates.",
+                            Value = "30"
                         });
                 });
 
@@ -60,14 +78,39 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                     b.Property<int>("ActionType")
                         .HasColumnType("int");
 
+                    b.Property<string>("ActorDisplayName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
                     b.Property<Guid>("ActorUserId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("BillingRequestId")
+                    b.Property<string>("AfterStatus")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("BeforeStatus")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<Guid?>("BillingRequestId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime2");
+
+                    b.Property<Guid>("EntityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("EntityNumber")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("Message")
                         .IsRequired()
@@ -84,6 +127,8 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("BillingRequestId", "CreatedAtUtc");
 
+                    b.HasIndex("EntityType", "EntityId", "CreatedAtUtc");
+
                     b.ToTable("AuditLogs", (string)null);
 
                     b.HasData(
@@ -91,54 +136,78 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                         {
                             Id = new Guid("eeeeeeee-eeee-eeee-eeee-000000000001"),
                             ActionType = 1,
+                            ActorDisplayName = "Sarah Sales",
                             ActorUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             BillingRequestId = new Guid("99999999-9999-9999-9999-000000000001"),
                             CreatedAtUtc = new DateTime(2026, 1, 6, 11, 0, 0, 0, DateTimeKind.Utc),
+                            EntityId = new Guid("99999999-9999-9999-9999-000000000001"),
+                            EntityNumber = "BR-2026-0001",
+                            EntityType = "BillingRequest",
                             Message = "Billing request created."
                         },
                         new
                         {
                             Id = new Guid("eeeeeeee-eeee-eeee-eeee-000000000002"),
                             ActionType = 3,
+                            ActorDisplayName = "Sarah Sales",
                             ActorUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             BillingRequestId = new Guid("99999999-9999-9999-9999-000000000004"),
                             CreatedAtUtc = new DateTime(2026, 1, 9, 11, 0, 0, 0, DateTimeKind.Utc),
+                            EntityId = new Guid("99999999-9999-9999-9999-000000000004"),
+                            EntityNumber = "BR-2026-0004",
+                            EntityType = "BillingRequest",
                             Message = "Billing request submitted to Accounts."
                         },
                         new
                         {
                             Id = new Guid("eeeeeeee-eeee-eeee-eeee-000000000003"),
                             ActionType = 3,
+                            ActorDisplayName = "Sarah Sales",
                             ActorUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             BillingRequestId = new Guid("99999999-9999-9999-9999-000000000006"),
                             CreatedAtUtc = new DateTime(2026, 1, 11, 11, 0, 0, 0, DateTimeKind.Utc),
+                            EntityId = new Guid("99999999-9999-9999-9999-000000000006"),
+                            EntityNumber = "BR-2026-0006",
+                            EntityType = "BillingRequest",
                             Message = "Billing request submitted to Accounts."
                         },
                         new
                         {
                             Id = new Guid("eeeeeeee-eeee-eeee-eeee-000000000004"),
                             ActionType = 5,
+                            ActorDisplayName = "Amir Accounts",
                             ActorUserId = new Guid("22222222-2222-2222-2222-222222222222"),
                             BillingRequestId = new Guid("99999999-9999-9999-9999-000000000008"),
                             CreatedAtUtc = new DateTime(2026, 1, 13, 11, 0, 0, 0, DateTimeKind.Utc),
+                            EntityId = new Guid("99999999-9999-9999-9999-000000000008"),
+                            EntityNumber = "BR-2026-0008",
+                            EntityType = "BillingRequest",
                             Message = "Accounts rejected request for revision."
                         },
                         new
                         {
                             Id = new Guid("eeeeeeee-eeee-eeee-eeee-000000000005"),
                             ActionType = 7,
+                            ActorDisplayName = "Amir Accounts",
                             ActorUserId = new Guid("22222222-2222-2222-2222-222222222222"),
                             BillingRequestId = new Guid("99999999-9999-9999-9999-000000000010"),
                             CreatedAtUtc = new DateTime(2026, 1, 15, 11, 0, 0, 0, DateTimeKind.Utc),
+                            EntityId = new Guid("99999999-9999-9999-9999-000000000010"),
+                            EntityNumber = "BR-2026-0010",
+                            EntityType = "BillingRequest",
                             Message = "Invoice generated after Accounts approval."
                         },
                         new
                         {
                             Id = new Guid("eeeeeeee-eeee-eeee-eeee-000000000006"),
                             ActionType = 8,
+                            ActorDisplayName = "Amir Accounts",
                             ActorUserId = new Guid("22222222-2222-2222-2222-222222222222"),
                             BillingRequestId = new Guid("99999999-9999-9999-9999-000000000014"),
                             CreatedAtUtc = new DateTime(2026, 1, 19, 11, 0, 0, 0, DateTimeKind.Utc),
+                            EntityId = new Guid("99999999-9999-9999-9999-000000000014"),
+                            EntityNumber = "BR-2026-0014",
+                            EntityType = "BillingRequest",
                             Message = "Invoice marked as paid."
                         });
                 });
@@ -149,8 +218,17 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("AccountsReviewedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime?>("ApprovedAtUtc")
                         .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("AssignedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("AssignedQueue")
+                        .HasColumnType("int");
 
                     b.Property<Guid?>("AssignedToUserId")
                         .HasColumnType("uniqueidentifier");
@@ -169,6 +247,12 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
 
+                    b.Property<DateTime?>("LastWorkflowActionAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ManagerReviewedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime?>("RejectedAtUtc")
                         .HasColumnType("datetime2");
 
@@ -182,6 +266,9 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTime?>("SubmittedAtUtc")
                         .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("SubmittedByUserId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("SubtotalAmount")
                         .HasPrecision(18, 2)
@@ -205,6 +292,8 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AssignedQueue");
+
                     b.HasIndex("AssignedToUserId");
 
                     b.HasIndex("CreatedAtUtc");
@@ -224,10 +313,13 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = new Guid("99999999-9999-9999-9999-000000000001"),
+                            AssignedAtUtc = new DateTime(2026, 1, 6, 9, 0, 0, 0, DateTimeKind.Utc),
+                            AssignedQueue = 1,
                             CreatedAtUtc = new DateTime(2026, 1, 6, 9, 0, 0, 0, DateTimeKind.Utc),
                             CreatedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             CustomerId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"),
                             Description = "Retail starter billing for seeded workflow testing.",
+                            LastWorkflowActionAtUtc = new DateTime(2026, 1, 7, 9, 0, 0, 0, DateTimeKind.Utc),
                             RequestNumber = "BR-2026-0001",
                             Status = 1,
                             SubtotalAmount = 10434.78m,
@@ -239,10 +331,13 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = new Guid("99999999-9999-9999-9999-000000000002"),
+                            AssignedAtUtc = new DateTime(2026, 1, 7, 9, 0, 0, 0, DateTimeKind.Utc),
+                            AssignedQueue = 1,
                             CreatedAtUtc = new DateTime(2026, 1, 7, 9, 0, 0, 0, DateTimeKind.Utc),
                             CreatedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             CustomerId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2"),
                             Description = "Monthly logistics support for seeded workflow testing.",
+                            LastWorkflowActionAtUtc = new DateTime(2026, 1, 8, 9, 0, 0, 0, DateTimeKind.Utc),
                             RequestNumber = "BR-2026-0002",
                             Status = 1,
                             SubtotalAmount = 67826.09m,
@@ -254,14 +349,18 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = new Guid("99999999-9999-9999-9999-000000000003"),
+                            AssignedAtUtc = new DateTime(2026, 1, 9, 9, 0, 0, 0, DateTimeKind.Utc),
+                            AssignedQueue = 2,
                             AssignedToUserId = new Guid("22222222-2222-2222-2222-222222222222"),
                             CreatedAtUtc = new DateTime(2026, 1, 8, 9, 0, 0, 0, DateTimeKind.Utc),
                             CreatedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             CustomerId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa4"),
                             Description = "Small distribution order for seeded workflow testing.",
+                            LastWorkflowActionAtUtc = new DateTime(2026, 1, 9, 9, 0, 0, 0, DateTimeKind.Utc),
                             RequestNumber = "BR-2026-0003",
                             Status = 3,
                             SubmittedAtUtc = new DateTime(2026, 1, 9, 9, 0, 0, 0, DateTimeKind.Utc),
+                            SubmittedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             SubtotalAmount = 24347.83m,
                             Title = "Small distribution order",
                             TotalAmount = 28000m,
@@ -271,14 +370,18 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = new Guid("99999999-9999-9999-9999-000000000004"),
+                            AssignedAtUtc = new DateTime(2026, 1, 10, 9, 0, 0, 0, DateTimeKind.Utc),
+                            AssignedQueue = 2,
                             AssignedToUserId = new Guid("22222222-2222-2222-2222-222222222222"),
                             CreatedAtUtc = new DateTime(2026, 1, 9, 9, 0, 0, 0, DateTimeKind.Utc),
                             CreatedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             CustomerId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"),
                             Description = "Fiber Retail service package for seeded workflow testing.",
+                            LastWorkflowActionAtUtc = new DateTime(2026, 1, 10, 9, 0, 0, 0, DateTimeKind.Utc),
                             RequestNumber = "BR-2026-0004",
                             Status = 3,
                             SubmittedAtUtc = new DateTime(2026, 1, 10, 9, 0, 0, 0, DateTimeKind.Utc),
+                            SubmittedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             SubtotalAmount = 39130.43m,
                             Title = "Fiber Retail service package",
                             TotalAmount = 45000m,
@@ -288,14 +391,19 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = new Guid("99999999-9999-9999-9999-000000000005"),
+                            AccountsReviewedByUserId = new Guid("22222222-2222-2222-2222-222222222222"),
+                            AssignedAtUtc = new DateTime(2026, 1, 11, 9, 0, 0, 0, DateTimeKind.Utc),
+                            AssignedQueue = 3,
                             AssignedToUserId = new Guid("33333333-3333-3333-3333-333333333333"),
                             CreatedAtUtc = new DateTime(2026, 1, 10, 9, 0, 0, 0, DateTimeKind.Utc),
                             CreatedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             CustomerId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa5"),
                             Description = "Platform implementation advance for seeded workflow testing.",
+                            LastWorkflowActionAtUtc = new DateTime(2026, 1, 11, 9, 0, 0, 0, DateTimeKind.Utc),
                             RequestNumber = "BR-2026-0005",
                             Status = 4,
                             SubmittedAtUtc = new DateTime(2026, 1, 11, 9, 0, 0, 0, DateTimeKind.Utc),
+                            SubmittedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             SubtotalAmount = 108695.65m,
                             Title = "Platform implementation advance",
                             TotalAmount = 125000m,
@@ -305,14 +413,18 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = new Guid("99999999-9999-9999-9999-000000000006"),
+                            AssignedAtUtc = new DateTime(2026, 1, 12, 9, 0, 0, 0, DateTimeKind.Utc),
+                            AssignedQueue = 2,
                             AssignedToUserId = new Guid("22222222-2222-2222-2222-222222222222"),
                             CreatedAtUtc = new DateTime(2026, 1, 11, 9, 0, 0, 0, DateTimeKind.Utc),
                             CreatedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             CustomerId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2"),
                             Description = "Metro Logistics annual support for seeded workflow testing.",
+                            LastWorkflowActionAtUtc = new DateTime(2026, 1, 12, 9, 0, 0, 0, DateTimeKind.Utc),
                             RequestNumber = "BR-2026-0006",
                             Status = 3,
                             SubmittedAtUtc = new DateTime(2026, 1, 12, 9, 0, 0, 0, DateTimeKind.Utc),
+                            SubmittedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             SubtotalAmount = 156521.74m,
                             Title = "Metro Logistics annual support",
                             TotalAmount = 180000m,
@@ -322,14 +434,19 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = new Guid("99999999-9999-9999-9999-000000000007"),
+                            AccountsReviewedByUserId = new Guid("22222222-2222-2222-2222-222222222222"),
+                            AssignedAtUtc = new DateTime(2026, 1, 13, 9, 0, 0, 0, DateTimeKind.Utc),
+                            AssignedQueue = 3,
                             AssignedToUserId = new Guid("33333333-3333-3333-3333-333333333333"),
                             CreatedAtUtc = new DateTime(2026, 1, 12, 9, 0, 0, 0, DateTimeKind.Utc),
                             CreatedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             CustomerId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa6"),
                             Description = "Enterprise procurement billing for seeded workflow testing.",
+                            LastWorkflowActionAtUtc = new DateTime(2026, 1, 13, 9, 0, 0, 0, DateTimeKind.Utc),
                             RequestNumber = "BR-2026-0007",
                             Status = 4,
                             SubmittedAtUtc = new DateTime(2026, 1, 13, 9, 0, 0, 0, DateTimeKind.Utc),
+                            SubmittedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             SubtotalAmount = 217391.30m,
                             Title = "Enterprise procurement billing",
                             TotalAmount = 250000m,
@@ -339,15 +456,19 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = new Guid("99999999-9999-9999-9999-000000000008"),
+                            AssignedAtUtc = new DateTime(2026, 1, 16, 9, 0, 0, 0, DateTimeKind.Utc),
+                            AssignedQueue = 1,
                             AssignedToUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             CreatedAtUtc = new DateTime(2026, 1, 13, 9, 0, 0, 0, DateTimeKind.Utc),
                             CreatedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             CustomerId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3"),
                             Description = "Northstar revised billing for seeded workflow testing.",
+                            LastWorkflowActionAtUtc = new DateTime(2026, 1, 16, 9, 0, 0, 0, DateTimeKind.Utc),
                             RejectedAtUtc = new DateTime(2026, 1, 16, 9, 0, 0, 0, DateTimeKind.Utc),
                             RequestNumber = "BR-2026-0008",
                             Status = 6,
                             SubmittedAtUtc = new DateTime(2026, 1, 14, 9, 0, 0, 0, DateTimeKind.Utc),
+                            SubmittedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             SubtotalAmount = 56521.74m,
                             Title = "Northstar revised billing",
                             TotalAmount = 65000m,
@@ -357,15 +478,19 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = new Guid("99999999-9999-9999-9999-000000000009"),
+                            AssignedAtUtc = new DateTime(2026, 1, 17, 9, 0, 0, 0, DateTimeKind.Utc),
+                            AssignedQueue = 1,
                             AssignedToUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             CreatedAtUtc = new DateTime(2026, 1, 14, 9, 0, 0, 0, DateTimeKind.Utc),
                             CreatedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             CustomerId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa4"),
                             Description = "Greenline returned billing for seeded workflow testing.",
+                            LastWorkflowActionAtUtc = new DateTime(2026, 1, 17, 9, 0, 0, 0, DateTimeKind.Utc),
                             RejectedAtUtc = new DateTime(2026, 1, 17, 9, 0, 0, 0, DateTimeKind.Utc),
                             RequestNumber = "BR-2026-0009",
                             Status = 6,
                             SubmittedAtUtc = new DateTime(2026, 1, 15, 9, 0, 0, 0, DateTimeKind.Utc),
+                            SubmittedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             SubtotalAmount = 30434.78m,
                             Title = "Greenline returned billing",
                             TotalAmount = 35000m,
@@ -375,15 +500,18 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = new Guid("99999999-9999-9999-9999-000000000010"),
+                            AccountsReviewedByUserId = new Guid("22222222-2222-2222-2222-222222222222"),
                             ApprovedAtUtc = new DateTime(2026, 1, 17, 9, 0, 0, 0, DateTimeKind.Utc),
-                            AssignedToUserId = new Guid("22222222-2222-2222-2222-222222222222"),
+                            AssignedQueue = 0,
                             CreatedAtUtc = new DateTime(2026, 1, 15, 9, 0, 0, 0, DateTimeKind.Utc),
                             CreatedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             CustomerId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa5"),
                             Description = "BluePeak subscription billing for seeded workflow testing.",
+                            LastWorkflowActionAtUtc = new DateTime(2026, 1, 17, 9, 0, 0, 0, DateTimeKind.Utc),
                             RequestNumber = "BR-2026-0010",
                             Status = 7,
                             SubmittedAtUtc = new DateTime(2026, 1, 16, 9, 0, 0, 0, DateTimeKind.Utc),
+                            SubmittedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             SubtotalAmount = 45217.39m,
                             Title = "BluePeak subscription billing",
                             TotalAmount = 52000m,
@@ -393,15 +521,18 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = new Guid("99999999-9999-9999-9999-000000000011"),
+                            AccountsReviewedByUserId = new Guid("22222222-2222-2222-2222-222222222222"),
                             ApprovedAtUtc = new DateTime(2026, 1, 18, 9, 0, 0, 0, DateTimeKind.Utc),
-                            AssignedToUserId = new Guid("22222222-2222-2222-2222-222222222222"),
+                            AssignedQueue = 0,
                             CreatedAtUtc = new DateTime(2026, 1, 16, 9, 0, 0, 0, DateTimeKind.Utc),
                             CreatedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             CustomerId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"),
                             Description = "Fiber Retail replenishment for seeded workflow testing.",
+                            LastWorkflowActionAtUtc = new DateTime(2026, 1, 18, 9, 0, 0, 0, DateTimeKind.Utc),
                             RequestNumber = "BR-2026-0011",
                             Status = 7,
                             SubmittedAtUtc = new DateTime(2026, 1, 17, 9, 0, 0, 0, DateTimeKind.Utc),
+                            SubmittedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             SubtotalAmount = 80000m,
                             Title = "Fiber Retail replenishment",
                             TotalAmount = 92000m,
@@ -411,15 +542,18 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = new Guid("99999999-9999-9999-9999-000000000012"),
+                            AccountsReviewedByUserId = new Guid("22222222-2222-2222-2222-222222222222"),
                             ApprovedAtUtc = new DateTime(2026, 1, 19, 9, 0, 0, 0, DateTimeKind.Utc),
-                            AssignedToUserId = new Guid("22222222-2222-2222-2222-222222222222"),
+                            AssignedQueue = 0,
                             CreatedAtUtc = new DateTime(2026, 1, 17, 9, 0, 0, 0, DateTimeKind.Utc),
                             CreatedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             CustomerId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2"),
                             Description = "Metro Logistics freight billing for seeded workflow testing.",
+                            LastWorkflowActionAtUtc = new DateTime(2026, 1, 19, 9, 0, 0, 0, DateTimeKind.Utc),
                             RequestNumber = "BR-2026-0012",
                             Status = 7,
                             SubmittedAtUtc = new DateTime(2026, 1, 18, 9, 0, 0, 0, DateTimeKind.Utc),
+                            SubmittedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             SubtotalAmount = 73913.04m,
                             Title = "Metro Logistics freight billing",
                             TotalAmount = 85000m,
@@ -429,15 +563,19 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = new Guid("99999999-9999-9999-9999-000000000013"),
+                            AccountsReviewedByUserId = new Guid("22222222-2222-2222-2222-222222222222"),
                             ApprovedAtUtc = new DateTime(2026, 1, 20, 9, 0, 0, 0, DateTimeKind.Utc),
-                            AssignedToUserId = new Guid("33333333-3333-3333-3333-333333333333"),
+                            AssignedQueue = 0,
                             CreatedAtUtc = new DateTime(2026, 1, 18, 9, 0, 0, 0, DateTimeKind.Utc),
                             CreatedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             CustomerId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa6"),
                             Description = "Eastern Trading supply billing for seeded workflow testing.",
+                            LastWorkflowActionAtUtc = new DateTime(2026, 1, 20, 9, 0, 0, 0, DateTimeKind.Utc),
+                            ManagerReviewedByUserId = new Guid("33333333-3333-3333-3333-333333333333"),
                             RequestNumber = "BR-2026-0013",
                             Status = 7,
                             SubmittedAtUtc = new DateTime(2026, 1, 19, 9, 0, 0, 0, DateTimeKind.Utc),
+                            SubmittedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             SubtotalAmount = 121739.13m,
                             Title = "Eastern Trading supply billing",
                             TotalAmount = 140000m,
@@ -447,15 +585,18 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = new Guid("99999999-9999-9999-9999-000000000014"),
+                            AccountsReviewedByUserId = new Guid("22222222-2222-2222-2222-222222222222"),
                             ApprovedAtUtc = new DateTime(2026, 1, 21, 9, 0, 0, 0, DateTimeKind.Utc),
-                            AssignedToUserId = new Guid("22222222-2222-2222-2222-222222222222"),
+                            AssignedQueue = 0,
                             CreatedAtUtc = new DateTime(2026, 1, 19, 9, 0, 0, 0, DateTimeKind.Utc),
                             CreatedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             CustomerId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3"),
                             Description = "Northstar completion billing for seeded workflow testing.",
+                            LastWorkflowActionAtUtc = new DateTime(2026, 1, 21, 9, 0, 0, 0, DateTimeKind.Utc),
                             RequestNumber = "BR-2026-0014",
                             Status = 8,
                             SubmittedAtUtc = new DateTime(2026, 1, 20, 9, 0, 0, 0, DateTimeKind.Utc),
+                            SubmittedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             SubtotalAmount = 27826.09m,
                             Title = "Northstar completion billing",
                             TotalAmount = 32000m,
@@ -465,15 +606,18 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = new Guid("99999999-9999-9999-9999-000000000015"),
+                            AccountsReviewedByUserId = new Guid("22222222-2222-2222-2222-222222222222"),
                             ApprovedAtUtc = new DateTime(2026, 1, 22, 9, 0, 0, 0, DateTimeKind.Utc),
-                            AssignedToUserId = new Guid("22222222-2222-2222-2222-222222222222"),
+                            AssignedQueue = 0,
                             CreatedAtUtc = new DateTime(2026, 1, 20, 9, 0, 0, 0, DateTimeKind.Utc),
                             CreatedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             CustomerId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa4"),
                             Description = "Greenline delivery billing for seeded workflow testing.",
+                            LastWorkflowActionAtUtc = new DateTime(2026, 1, 22, 9, 0, 0, 0, DateTimeKind.Utc),
                             RequestNumber = "BR-2026-0015",
                             Status = 8,
                             SubmittedAtUtc = new DateTime(2026, 1, 21, 9, 0, 0, 0, DateTimeKind.Utc),
+                            SubmittedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             SubtotalAmount = 76521.74m,
                             Title = "Greenline delivery billing",
                             TotalAmount = 88000m,
@@ -483,15 +627,19 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = new Guid("99999999-9999-9999-9999-000000000016"),
+                            AccountsReviewedByUserId = new Guid("22222222-2222-2222-2222-222222222222"),
                             ApprovedAtUtc = new DateTime(2026, 1, 23, 9, 0, 0, 0, DateTimeKind.Utc),
-                            AssignedToUserId = new Guid("33333333-3333-3333-3333-333333333333"),
+                            AssignedQueue = 0,
                             CreatedAtUtc = new DateTime(2026, 1, 21, 9, 0, 0, 0, DateTimeKind.Utc),
                             CreatedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             CustomerId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa5"),
                             Description = "BluePeak enterprise billing for seeded workflow testing.",
+                            LastWorkflowActionAtUtc = new DateTime(2026, 1, 23, 9, 0, 0, 0, DateTimeKind.Utc),
+                            ManagerReviewedByUserId = new Guid("33333333-3333-3333-3333-333333333333"),
                             RequestNumber = "BR-2026-0016",
                             Status = 8,
                             SubmittedAtUtc = new DateTime(2026, 1, 22, 9, 0, 0, 0, DateTimeKind.Utc),
+                            SubmittedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             SubtotalAmount = 304347.83m,
                             Title = "BluePeak enterprise billing",
                             TotalAmount = 350000m,
@@ -501,11 +649,12 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = new Guid("99999999-9999-9999-9999-000000000017"),
-                            AssignedToUserId = new Guid("11111111-1111-1111-1111-111111111111"),
+                            AssignedQueue = 0,
                             CreatedAtUtc = new DateTime(2026, 1, 22, 9, 0, 0, 0, DateTimeKind.Utc),
                             CreatedByUserId = new Guid("11111111-1111-1111-1111-111111111111"),
                             CustomerId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"),
                             Description = "Cancelled duplicate request for seeded workflow testing.",
+                            LastWorkflowActionAtUtc = new DateTime(2026, 1, 23, 9, 0, 0, 0, DateTimeKind.Utc),
                             RequestNumber = "BR-2026-0017",
                             Status = 9,
                             SubtotalAmount = 34782.61m,
@@ -764,6 +913,12 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("ArchivedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ArchivedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("BillingAddress")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -771,8 +926,13 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("ContactEmail")
                         .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
+                        .HasMaxLength(254)
+                        .HasColumnType("nvarchar(254)");
+
+                    b.Property<string>("ContactPerson")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime2");
@@ -783,11 +943,26 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("Phone")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TaxIdentifier")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ContactEmail");
+
+                    b.HasIndex("Name");
+
+                    b.HasIndex("Status");
 
                     b.ToTable("Customers", (string)null);
 
@@ -797,55 +972,140 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                             Id = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"),
                             BillingAddress = "House 11, Road 7, Dhaka",
                             ContactEmail = "billing@fiberretail.local",
+                            ContactPerson = "Nadia Rahman",
                             CreatedAtUtc = new DateTime(2026, 1, 5, 9, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Fiber Retail Ltd.",
-                            Phone = "+8801700000001"
+                            Phone = "+8801700000001",
+                            Status = 1,
+                            TaxIdentifier = "TIN-FIBER-001",
+                            UpdatedAtUtc = new DateTime(2026, 1, 5, 9, 0, 0, 0, DateTimeKind.Utc)
                         },
                         new
                         {
                             Id = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2"),
                             BillingAddress = "Port Road, Chattogram",
                             ContactEmail = "finance@metrologistics.local",
+                            ContactPerson = "Tariq Hasan",
                             CreatedAtUtc = new DateTime(2026, 1, 5, 9, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Metro Logistics Bangladesh",
-                            Phone = "+8801700000002"
+                            Phone = "+8801700000002",
+                            Status = 1,
+                            TaxIdentifier = "TIN-METRO-002",
+                            UpdatedAtUtc = new DateTime(2026, 1, 5, 9, 0, 0, 0, DateTimeKind.Utc)
                         },
                         new
                         {
                             Id = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3"),
                             BillingAddress = "Airport Road, Dhaka",
                             ContactEmail = "accounts@northstar.local",
+                            ContactPerson = "Rumana Islam",
                             CreatedAtUtc = new DateTime(2026, 1, 5, 9, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Northstar Enterprise",
-                            Phone = "+8801700000003"
+                            Phone = "+8801700000003",
+                            Status = 1,
+                            TaxIdentifier = "TIN-NORTH-003",
+                            UpdatedAtUtc = new DateTime(2026, 1, 5, 9, 0, 0, 0, DateTimeKind.Utc)
                         },
                         new
                         {
                             Id = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa4"),
                             BillingAddress = "Industrial Area, Gazipur",
                             ContactEmail = "billing@greenline.local",
+                            ContactPerson = "Farhan Kabir",
                             CreatedAtUtc = new DateTime(2026, 1, 5, 9, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Greenline Distribution",
-                            Phone = "+8801700000004"
+                            Phone = "+8801700000004",
+                            Status = 1,
+                            TaxIdentifier = "TIN-GREEN-004",
+                            UpdatedAtUtc = new DateTime(2026, 1, 5, 9, 0, 0, 0, DateTimeKind.Utc)
                         },
                         new
                         {
                             Id = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa5"),
                             BillingAddress = "Banani, Dhaka",
                             ContactEmail = "finance@bluepeak.local",
+                            ContactPerson = "Mahira Chowdhury",
                             CreatedAtUtc = new DateTime(2026, 1, 5, 9, 0, 0, 0, DateTimeKind.Utc),
                             Name = "BluePeak Systems",
-                            Phone = "+8801700000005"
+                            Phone = "+8801700000005",
+                            Status = 1,
+                            TaxIdentifier = "TIN-BLUE-005",
+                            UpdatedAtUtc = new DateTime(2026, 1, 5, 9, 0, 0, 0, DateTimeKind.Utc)
                         },
                         new
                         {
                             Id = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa6"),
                             BillingAddress = "Motijheel, Dhaka",
                             ContactEmail = "accounts@easterntrading.local",
+                            ContactPerson = "Sabbir Ahmed",
                             CreatedAtUtc = new DateTime(2026, 1, 5, 9, 0, 0, 0, DateTimeKind.Utc),
                             Name = "Eastern Trading Co.",
-                            Phone = "+8801700000006"
+                            Phone = "+8801700000006",
+                            Status = 1,
+                            TaxIdentifier = "TIN-EAST-006",
+                            UpdatedAtUtc = new DateTime(2026, 1, 5, 9, 0, 0, 0, DateTimeKind.Utc)
                         });
+                });
+
+            modelBuilder.Entity("FlowLedger.Domain.Entities.EnrollmentRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DecisionReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(254)
+                        .HasColumnType("nvarchar(254)");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<string>("PasswordSalt")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<int>("RequestedRole")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ReviewedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ReviewedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAtUtc");
+
+                    b.HasIndex("Email");
+
+                    b.HasIndex("ReviewedByUserId");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("EnrollmentRequests", (string)null);
                 });
 
             modelBuilder.Entity("FlowLedger.Domain.Entities.Invoice", b =>
@@ -862,6 +1122,9 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTime>("DueAtUtc")
                         .HasColumnType("datetime2");
+
+                    b.Property<int>("DueDays")
+                        .HasColumnType("int");
 
                     b.Property<string>("InvoiceNumber")
                         .IsRequired()
@@ -889,6 +1152,10 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<decimal>("VatPercentage")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("BillingRequestId")
@@ -910,12 +1177,14 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                             BillingRequestId = new Guid("99999999-9999-9999-9999-000000000010"),
                             CustomerId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa5"),
                             DueAtUtc = new DateTime(2026, 2, 16, 9, 0, 0, 0, DateTimeKind.Utc),
+                            DueDays = 30,
                             InvoiceNumber = "INV-2026-0001",
                             IssuedAtUtc = new DateTime(2026, 1, 17, 9, 0, 0, 0, DateTimeKind.Utc),
                             Status = 2,
                             SubtotalAmount = 45217.39m,
                             TotalAmount = 52000m,
-                            VatAmount = 6782.61m
+                            VatAmount = 6782.61m,
+                            VatPercentage = 15m
                         },
                         new
                         {
@@ -923,12 +1192,14 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                             BillingRequestId = new Guid("99999999-9999-9999-9999-000000000011"),
                             CustomerId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"),
                             DueAtUtc = new DateTime(2026, 2, 17, 9, 0, 0, 0, DateTimeKind.Utc),
+                            DueDays = 30,
                             InvoiceNumber = "INV-2026-0002",
                             IssuedAtUtc = new DateTime(2026, 1, 18, 9, 0, 0, 0, DateTimeKind.Utc),
                             Status = 2,
                             SubtotalAmount = 80000m,
                             TotalAmount = 92000m,
-                            VatAmount = 12000m
+                            VatAmount = 12000m,
+                            VatPercentage = 15m
                         },
                         new
                         {
@@ -936,12 +1207,14 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                             BillingRequestId = new Guid("99999999-9999-9999-9999-000000000012"),
                             CustomerId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2"),
                             DueAtUtc = new DateTime(2026, 2, 18, 9, 0, 0, 0, DateTimeKind.Utc),
+                            DueDays = 30,
                             InvoiceNumber = "INV-2026-0003",
                             IssuedAtUtc = new DateTime(2026, 1, 19, 9, 0, 0, 0, DateTimeKind.Utc),
                             Status = 2,
                             SubtotalAmount = 73913.04m,
                             TotalAmount = 85000m,
-                            VatAmount = 11086.96m
+                            VatAmount = 11086.96m,
+                            VatPercentage = 15m
                         },
                         new
                         {
@@ -949,12 +1222,14 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                             BillingRequestId = new Guid("99999999-9999-9999-9999-000000000013"),
                             CustomerId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa6"),
                             DueAtUtc = new DateTime(2026, 2, 19, 9, 0, 0, 0, DateTimeKind.Utc),
+                            DueDays = 30,
                             InvoiceNumber = "INV-2026-0004",
                             IssuedAtUtc = new DateTime(2026, 1, 20, 9, 0, 0, 0, DateTimeKind.Utc),
                             Status = 2,
                             SubtotalAmount = 121739.13m,
                             TotalAmount = 140000m,
-                            VatAmount = 18260.87m
+                            VatAmount = 18260.87m,
+                            VatPercentage = 15m
                         },
                         new
                         {
@@ -962,13 +1237,15 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                             BillingRequestId = new Guid("99999999-9999-9999-9999-000000000014"),
                             CustomerId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3"),
                             DueAtUtc = new DateTime(2026, 2, 20, 9, 0, 0, 0, DateTimeKind.Utc),
+                            DueDays = 30,
                             InvoiceNumber = "INV-2026-0005",
                             IssuedAtUtc = new DateTime(2026, 1, 21, 9, 0, 0, 0, DateTimeKind.Utc),
                             PaidAtUtc = new DateTime(2026, 1, 29, 9, 0, 0, 0, DateTimeKind.Utc),
                             Status = 3,
                             SubtotalAmount = 27826.09m,
                             TotalAmount = 32000m,
-                            VatAmount = 4173.91m
+                            VatAmount = 4173.91m,
+                            VatPercentage = 15m
                         },
                         new
                         {
@@ -976,13 +1253,15 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                             BillingRequestId = new Guid("99999999-9999-9999-9999-000000000015"),
                             CustomerId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa4"),
                             DueAtUtc = new DateTime(2026, 2, 21, 9, 0, 0, 0, DateTimeKind.Utc),
+                            DueDays = 30,
                             InvoiceNumber = "INV-2026-0006",
                             IssuedAtUtc = new DateTime(2026, 1, 22, 9, 0, 0, 0, DateTimeKind.Utc),
                             PaidAtUtc = new DateTime(2026, 1, 29, 9, 0, 0, 0, DateTimeKind.Utc),
                             Status = 3,
                             SubtotalAmount = 76521.74m,
                             TotalAmount = 88000m,
-                            VatAmount = 11478.26m
+                            VatAmount = 11478.26m,
+                            VatPercentage = 15m
                         },
                         new
                         {
@@ -990,13 +1269,15 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                             BillingRequestId = new Guid("99999999-9999-9999-9999-000000000016"),
                             CustomerId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa5"),
                             DueAtUtc = new DateTime(2026, 2, 22, 9, 0, 0, 0, DateTimeKind.Utc),
+                            DueDays = 30,
                             InvoiceNumber = "INV-2026-0007",
                             IssuedAtUtc = new DateTime(2026, 1, 23, 9, 0, 0, 0, DateTimeKind.Utc),
                             PaidAtUtc = new DateTime(2026, 1, 28, 9, 0, 0, 0, DateTimeKind.Utc),
                             Status = 3,
                             SubtotalAmount = 304347.83m,
                             TotalAmount = 350000m,
-                            VatAmount = 45652.17m
+                            VatAmount = 45652.17m,
+                            VatPercentage = 15m
                         });
                 });
 
@@ -1070,10 +1351,19 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("DeactivatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeactivatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Email")
                         .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
+                        .HasMaxLength(254)
+                        .HasColumnType("nvarchar(254)");
+
+                    b.Property<Guid?>("EnrollmentRequestId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("FullName")
                         .IsRequired()
@@ -1082,6 +1372,9 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastLoginAtUtc")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
@@ -1096,10 +1389,18 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                     b.Property<int>("Role")
                         .HasColumnType("int");
 
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Email")
                         .IsUnique();
+
+                    b.HasIndex("Status");
 
                     b.ToTable("Users", (string)null);
 
@@ -1113,7 +1414,9 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                             IsActive = true,
                             PasswordHash = "",
                             PasswordSalt = "",
-                            Role = 1
+                            Role = 1,
+                            Status = 1,
+                            UpdatedAtUtc = new DateTime(2026, 1, 5, 9, 0, 0, 0, DateTimeKind.Utc)
                         },
                         new
                         {
@@ -1124,7 +1427,9 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                             IsActive = true,
                             PasswordHash = "",
                             PasswordSalt = "",
-                            Role = 2
+                            Role = 2,
+                            Status = 1,
+                            UpdatedAtUtc = new DateTime(2026, 1, 5, 9, 0, 0, 0, DateTimeKind.Utc)
                         },
                         new
                         {
@@ -1135,7 +1440,9 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                             IsActive = true,
                             PasswordHash = "",
                             PasswordSalt = "",
-                            Role = 3
+                            Role = 3,
+                            Status = 1,
+                            UpdatedAtUtc = new DateTime(2026, 1, 5, 9, 0, 0, 0, DateTimeKind.Utc)
                         },
                         new
                         {
@@ -1146,8 +1453,44 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                             IsActive = true,
                             PasswordHash = "",
                             PasswordSalt = "",
-                            Role = 4
+                            Role = 4,
+                            Status = 1,
+                            UpdatedAtUtc = new DateTime(2026, 1, 5, 9, 0, 0, 0, DateTimeKind.Utc)
                         });
+                });
+
+            modelBuilder.Entity("FlowLedger.Domain.Entities.UserPreference", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("DefaultDashboardPeriodMonths")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DefaultLandingPage")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<int>("RowsPerPage")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("UserPreferences", (string)null);
                 });
 
             modelBuilder.Entity("FlowLedger.Domain.Entities.AuditLog", b =>
@@ -1161,8 +1504,7 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                     b.HasOne("FlowLedger.Domain.Entities.BillingRequest", "BillingRequest")
                         .WithMany("AuditLogs")
                         .HasForeignKey("BillingRequestId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("ActorUser");
 
@@ -1225,6 +1567,16 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                     b.Navigation("BillingRequest");
                 });
 
+            modelBuilder.Entity("FlowLedger.Domain.Entities.EnrollmentRequest", b =>
+                {
+                    b.HasOne("FlowLedger.Domain.Entities.User", "ReviewedByUser")
+                        .WithMany()
+                        .HasForeignKey("ReviewedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ReviewedByUser");
+                });
+
             modelBuilder.Entity("FlowLedger.Domain.Entities.Invoice", b =>
                 {
                     b.HasOne("FlowLedger.Domain.Entities.BillingRequest", "BillingRequest")
@@ -1250,6 +1602,17 @@ namespace FlowLedger.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("FlowLedger.Domain.Entities.UserPreference", b =>
+                {
+                    b.HasOne("FlowLedger.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("User");

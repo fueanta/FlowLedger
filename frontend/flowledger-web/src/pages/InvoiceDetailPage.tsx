@@ -100,6 +100,8 @@ export function InvoiceDetailPage() {
             </div>
             <dl className="space-y-2 text-sm">
               <DetailRow label="Issued" value={formatDate(invoice.issuedAtUtc)} />
+              <DetailRow label="VAT rate" value={`${invoice.vatPercentage}%`} />
+              <DetailRow label="Due period" value={`${invoice.dueDays} days`} />
               <DetailRow label="Due" value={formatDate(invoice.dueAtUtc)} />
               <DetailRow label="Paid" value={formatDate(invoice.paidAtUtc)} />
               <DetailRow label="Request status" value={invoice.billingRequest.status} />

@@ -28,11 +28,13 @@ public class BillingRequestConfiguration : IEntityTypeConfiguration<BillingReque
         builder.Property(x => x.SubtotalAmount).HasPrecision(18, 2);
         builder.Property(x => x.VatAmount).HasPrecision(18, 2);
         builder.Property(x => x.TotalAmount).HasPrecision(18, 2);
+        builder.Property(x => x.AssignedQueue).HasConversion<int>();
 
         builder.HasIndex(x => x.RequestNumber)
             .IsUnique();
 
         builder.HasIndex(x => x.Status);
+        builder.HasIndex(x => x.AssignedQueue);
         builder.HasIndex(x => x.CreatedByUserId);
         builder.HasIndex(x => x.AssignedToUserId);
         builder.HasIndex(x => x.CustomerId);

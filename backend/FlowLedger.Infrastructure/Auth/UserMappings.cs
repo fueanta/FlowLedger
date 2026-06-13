@@ -7,6 +7,15 @@ internal static class UserMappings
 {
     public static UserDto ToDto(this User user)
     {
-        return new UserDto(user.Id, user.FullName, user.Email, user.Role);
+        return new UserDto(
+            user.Id,
+            user.FullName,
+            user.Email,
+            user.Role,
+            user.Status,
+            user.IsActive,
+            user.CreatedAtUtc,
+            user.UpdatedAtUtc,
+            user.LastLoginAtUtc);
     }
 }

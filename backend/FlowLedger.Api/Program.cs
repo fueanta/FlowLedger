@@ -110,6 +110,11 @@ if (!string.IsNullOrWhiteSpace(connectionString))
 {
     await app.Services.MigrateDatabaseAsync();
     await app.Services.BootstrapSeedUserPasswordsAsync();
+
+    if (!app.Environment.IsProduction() && app.Configuration.GetValue("SeedData:RefreshDemoDates", true))
+    {
+        await app.Services.RefreshDemoSeedDatesAsync();
+    }
 }
 
 app.Run();

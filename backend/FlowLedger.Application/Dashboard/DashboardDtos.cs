@@ -1,6 +1,8 @@
 namespace FlowLedger.Application.Dashboard;
 
 public sealed record DashboardSummaryDto(
+    DashboardPeriodDto Period,
+    IReadOnlyDictionary<string, string> MetricScopes,
     int TotalRequests,
     int PendingAccountsReview,
     int PendingManagerApproval,
@@ -13,6 +15,11 @@ public sealed record DashboardSummaryDto(
     IReadOnlyList<MonthlyInvoiceTrendDto> MonthlyInvoiceTrend,
     IReadOnlyList<AgingBucketDto> AgingBuckets,
     IReadOnlyList<RecentActivityDto> RecentActivity);
+
+public sealed record DashboardPeriodDto(
+    int Months,
+    DateTime StartUtc,
+    DateTime EndUtc);
 
 public sealed record StatusBreakdownDto(string Status, int Count);
 

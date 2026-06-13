@@ -18,7 +18,7 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .IsRequired();
 
         builder.Property(x => x.Email)
-            .HasMaxLength(256)
+            .HasMaxLength(254)
             .IsRequired();
 
         builder.Property(x => x.PasswordHash)
@@ -29,8 +29,14 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .HasMaxLength(512)
             .IsRequired();
 
+        builder.Property(x => x.Status)
+            .HasConversion<int>()
+            .IsRequired();
+
         builder.HasIndex(x => x.Email)
             .IsUnique();
+
+        builder.HasIndex(x => x.Status);
 
         builder.HasData(FlowLedgerSeedData.Users);
     }

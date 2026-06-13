@@ -1,4 +1,4 @@
-import { BarChart3, Building2, FileText, LayoutDashboard, LogOut, ReceiptText, Settings } from 'lucide-react'
+import { BarChart3, Building2, FileText, Inbox, LayoutDashboard, LogOut, ReceiptText, Settings, UserPlus, Users } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { Button } from '../components/ui/button'
 import { Separator } from '../components/ui/separator'
@@ -8,14 +8,18 @@ import { cn } from '../lib/utils'
 
 const navItems = [
   { to: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/app/work-queue', label: 'My Work', icon: Inbox },
   { to: '/app/requests', label: 'Requests', icon: FileText },
   { to: '/app/invoices', label: 'Invoices', icon: ReceiptText },
-  { to: '/app/customers', label: 'Customers', icon: Building2 },
+  { to: '/app/clients', label: 'Clients', icon: Building2 },
+  { to: '/app/enrollment-requests', label: 'Enrollment', icon: UserPlus, adminOnly: true },
+  { to: '/app/users', label: 'Users', icon: Users, adminOnly: true },
   { to: '/app/settings', label: 'Settings', icon: Settings },
 ]
 
 export function AppLayout() {
   const { user, logout } = useAuth()
+  const visibleNavItems = navItems.filter((item) => !item.adminOnly || user?.role === 'Admin')
 
   return (
     <div className="min-h-svh bg-slate-50">
@@ -33,7 +37,7 @@ export function AppLayout() {
             </div>
           </div>
           <nav className="flex-1 space-y-1 px-3" aria-label="Main navigation">
-            {navItems.map((item) => (
+            {visibleNavItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -71,7 +75,7 @@ export function AppLayout() {
               <p className="text-xs text-slate-600">{user?.fullName}</p>
             </div>
             <nav className="flex gap-2 overflow-x-auto lg:hidden" aria-label="Mobile navigation">
-              {navItems.map((item) => (
+              {visibleNavItems.map((item) => (
                 <NavLink
                   key={item.to}
                   to={item.to}

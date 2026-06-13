@@ -23,16 +23,19 @@ public sealed class BillingRequestsController : ControllerBase
     public async Task<ActionResult<PagedResult<BillingRequestListItemDto>>> Get(
         [FromQuery] BillingRequestStatus? status,
         [FromQuery] Guid? customerId,
+        [FromQuery] WorkflowQueue? queue,
         [FromQuery] bool assignedToMe,
         [FromQuery] bool createdByMe,
         [FromQuery] string? search,
         [FromQuery] DateTime? fromDate,
         [FromQuery] DateTime? untilDate,
+        [FromQuery] string? sortBy,
+        [FromQuery] string? sortDirection,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         CancellationToken cancellationToken = default)
     {
-        var query = new BillingRequestQuery(status, customerId, assignedToMe, createdByMe, search, fromDate, untilDate, page, pageSize);
+        var query = new BillingRequestQuery(status, customerId, queue, assignedToMe, createdByMe, search, fromDate, untilDate, sortBy, sortDirection, page, pageSize);
 
         return Ok(await _billingRequestService.GetAsync(query, User.ToCurrentUser(), cancellationToken));
     }

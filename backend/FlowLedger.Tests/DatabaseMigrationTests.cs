@@ -83,8 +83,11 @@ public class DatabaseMigrationTests : IClassFixture<DatabaseMigrationFixture>
         (await dbContext.Comments.CountAsync()).Should().Be(3);
         (await dbContext.AuditLogs.CountAsync()).Should().Be(6);
         (await dbContext.Notifications.CountAsync()).Should().Be(3);
-        (await dbContext.AppSettings.CountAsync()).Should().Be(1);
+        (await dbContext.AppSettings.CountAsync()).Should().Be(4);
         (await dbContext.AppSettings.SingleAsync(x => x.Key == "Jwt.AccessTokenMinutes")).Value.Should().Be("30");
+        (await dbContext.AppSettings.SingleAsync(x => x.Key == "Billing.VatPercentage")).Value.Should().Be("15");
+        (await dbContext.AppSettings.SingleAsync(x => x.Key == "Billing.ManagerApprovalThreshold")).Value.Should().Be("100000");
+        (await dbContext.AppSettings.SingleAsync(x => x.Key == "Billing.InvoiceDueDays")).Value.Should().Be("30");
 
         statusCounts.Should().Contain(BillingRequestStatus.Draft, 2);
         statusCounts.Should().Contain(BillingRequestStatus.AccountsReview, 3);

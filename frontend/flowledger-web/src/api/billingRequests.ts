@@ -1,12 +1,15 @@
 import { apiClient } from '../lib/apiClient'
-import type { BillingRequestDetail, BillingRequestListItem, BillingRequestStatus, PagedResult } from '../types'
+import type { BillingRequestDetail, BillingRequestListItem, BillingRequestStatus, PagedResult, WorkflowQueue } from '../types'
 
 export type BillingRequestQuery = {
   status?: BillingRequestStatus | ''
   customerId?: string
+  queue?: WorkflowQueue | ''
   search?: string
   assignedToMe?: boolean
   createdByMe?: boolean
+  sortBy?: string
+  sortDirection?: 'asc' | 'desc'
   page?: number
   pageSize?: number
 }
@@ -20,6 +23,14 @@ export type BillingRequestPayload = {
 
 export async function getBillingRequests(query: BillingRequestQuery) {
   const response = await apiClient.get<PagedResult<BillingRequestListItem>>('/billing-requests', {
+    params: normalizeQuery(query),
+  })
+
+  return response.data
+}
+
+export async function getWorkQueue(query: Pick<BillingRequestQuery, 'queue' | 'search' | 'sortBy' | 'sortDirection' | 'page' | 'pageSize'>) {
+  const response = await apiClient.get<PagedResult<BillingRequestListItem>>('/work-queue', {
     params: normalizeQuery(query),
   })
 

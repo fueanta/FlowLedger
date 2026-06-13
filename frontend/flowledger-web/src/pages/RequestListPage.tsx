@@ -118,9 +118,9 @@ export function RequestListPage() {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="request-customer">Customer</Label>
+            <Label htmlFor="request-customer">Client</Label>
             <Select id="request-customer" value={customerId} onChange={(event) => setCustomerId(event.target.value)}>
-              <option value="">All customers</option>
+              <option value="">All active clients</option>
               {customersQuery.data?.map((customer) => (
                 <option key={customer.id} value={customer.id}>
                   {customer.name}
@@ -154,8 +154,9 @@ export function RequestListPage() {
                 <TableRow>
                   <TableHead>Request No</TableHead>
                   <TableHead>Title</TableHead>
-                  <TableHead>Customer</TableHead>
+                  <TableHead>Client</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Queue</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Updated</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -170,6 +171,7 @@ export function RequestListPage() {
                     <TableCell>
                       <StatusBadge status={request.status} />
                     </TableCell>
+                    <TableCell>{request.assignedQueue === 'None' ? '-' : request.assignedQueue}</TableCell>
                     <TableCell>{formatMoney(request.totalAmount)}</TableCell>
                     <TableCell>{formatDate(request.updatedAtUtc)}</TableCell>
                     <TableCell>

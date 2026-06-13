@@ -6,6 +6,9 @@ namespace FlowLedger.Infrastructure.Persistence.SeedData;
 public static class FlowLedgerSeedData
 {
     public const string JwtAccessTokenMinutesKey = "Jwt.AccessTokenMinutes";
+    public const string VatPercentageKey = "Billing.VatPercentage";
+    public const string ManagerApprovalThresholdKey = "Billing.ManagerApprovalThreshold";
+    public const string InvoiceDueDaysKey = "Billing.InvoiceDueDays";
 
     public static readonly Guid SalesUserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     public static readonly Guid AccountsUserId = Guid.Parse("22222222-2222-2222-2222-222222222222");
@@ -29,8 +32,10 @@ public static class FlowLedgerSeedData
             FullName = "Sarah Sales",
             Email = "sales@flowledger.local",
             Role = RoleName.Sales,
+            Status = UserStatus.Active,
             IsActive = true,
-            CreatedAtUtc = BaseDate
+            CreatedAtUtc = BaseDate,
+            UpdatedAtUtc = BaseDate
         },
         new()
         {
@@ -38,8 +43,10 @@ public static class FlowLedgerSeedData
             FullName = "Amir Accounts",
             Email = "accounts@flowledger.local",
             Role = RoleName.Accounts,
+            Status = UserStatus.Active,
             IsActive = true,
-            CreatedAtUtc = BaseDate
+            CreatedAtUtc = BaseDate,
+            UpdatedAtUtc = BaseDate
         },
         new()
         {
@@ -47,8 +54,10 @@ public static class FlowLedgerSeedData
             FullName = "Mona Manager",
             Email = "manager@flowledger.local",
             Role = RoleName.Manager,
+            Status = UserStatus.Active,
             IsActive = true,
-            CreatedAtUtc = BaseDate
+            CreatedAtUtc = BaseDate,
+            UpdatedAtUtc = BaseDate
         },
         new()
         {
@@ -56,8 +65,10 @@ public static class FlowLedgerSeedData
             FullName = "Adam Admin",
             Email = "admin@flowledger.local",
             Role = RoleName.Admin,
+            Status = UserStatus.Active,
             IsActive = true,
-            CreatedAtUtc = BaseDate
+            CreatedAtUtc = BaseDate,
+            UpdatedAtUtc = BaseDate
         }
     ];
 
@@ -68,17 +79,35 @@ public static class FlowLedgerSeedData
             Key = JwtAccessTokenMinutesKey,
             Value = "30",
             Description = "Access token lifetime in minutes."
+        },
+        new()
+        {
+            Key = VatPercentageKey,
+            Value = "15",
+            Description = "VAT percentage used for new billing request totals."
+        },
+        new()
+        {
+            Key = ManagerApprovalThresholdKey,
+            Value = "100000",
+            Description = "Total amount above which Accounts approval routes to Management."
+        },
+        new()
+        {
+            Key = InvoiceDueDaysKey,
+            Value = "30",
+            Description = "Number of days after issue date used for new invoice due dates."
         }
     ];
 
     public static readonly Customer[] Customers =
     [
-        Customer(FiberRetailCustomerId, "Fiber Retail Ltd.", "billing@fiberretail.local", "+8801700000001", "House 11, Road 7, Dhaka"),
-        Customer(MetroLogisticsCustomerId, "Metro Logistics Bangladesh", "finance@metrologistics.local", "+8801700000002", "Port Road, Chattogram"),
-        Customer(NorthstarCustomerId, "Northstar Enterprise", "accounts@northstar.local", "+8801700000003", "Airport Road, Dhaka"),
-        Customer(GreenlineCustomerId, "Greenline Distribution", "billing@greenline.local", "+8801700000004", "Industrial Area, Gazipur"),
-        Customer(BluePeakCustomerId, "BluePeak Systems", "finance@bluepeak.local", "+8801700000005", "Banani, Dhaka"),
-        Customer(EasternTradingCustomerId, "Eastern Trading Co.", "accounts@easterntrading.local", "+8801700000006", "Motijheel, Dhaka")
+        Customer(FiberRetailCustomerId, "Fiber Retail Ltd.", "Nadia Rahman", "billing@fiberretail.local", "+8801700000001", "House 11, Road 7, Dhaka", "TIN-FIBER-001"),
+        Customer(MetroLogisticsCustomerId, "Metro Logistics Bangladesh", "Tariq Hasan", "finance@metrologistics.local", "+8801700000002", "Port Road, Chattogram", "TIN-METRO-002"),
+        Customer(NorthstarCustomerId, "Northstar Enterprise", "Rumana Islam", "accounts@northstar.local", "+8801700000003", "Airport Road, Dhaka", "TIN-NORTH-003"),
+        Customer(GreenlineCustomerId, "Greenline Distribution", "Farhan Kabir", "billing@greenline.local", "+8801700000004", "Industrial Area, Gazipur", "TIN-GREEN-004"),
+        Customer(BluePeakCustomerId, "BluePeak Systems", "Mahira Chowdhury", "finance@bluepeak.local", "+8801700000005", "Banani, Dhaka", "TIN-BLUE-005"),
+        Customer(EasternTradingCustomerId, "Eastern Trading Co.", "Sabbir Ahmed", "accounts@easterntrading.local", "+8801700000006", "Motijheel, Dhaka", "TIN-EAST-006")
     ];
 
     public static readonly BillingRequest[] BillingRequests =
@@ -99,7 +128,7 @@ public static class FlowLedgerSeedData
         BillingRequest(14, NorthstarCustomerId, "Northstar completion billing", BillingRequestStatus.Paid, 32000m, AccountsUserId, 1, null, true),
         BillingRequest(15, GreenlineCustomerId, "Greenline delivery billing", BillingRequestStatus.Paid, 88000m, AccountsUserId, 1, null, true),
         BillingRequest(16, BluePeakCustomerId, "BluePeak enterprise billing", BillingRequestStatus.Paid, 350000m, ManagerUserId, 1, null, true),
-        BillingRequest(17, FiberRetailCustomerId, "Cancelled duplicate request", BillingRequestStatus.Cancelled, 40000m, SalesUserId, null, null)
+        BillingRequest(17, FiberRetailCustomerId, "Cancelled duplicate request", BillingRequestStatus.Cancelled, 40000m, null, null, null)
     ];
 
     public static readonly BillingRequestLineItem[] LineItems =
@@ -148,15 +177,19 @@ public static class FlowLedgerSeedData
         Notification(3, SalesUserId, "Request rejected", "BR-2026-0008 needs revision.")
     ];
 
-    private static Customer Customer(Guid id, string name, string email, string phone, string address)
+    private static Customer Customer(Guid id, string name, string contactPerson, string email, string phone, string address, string taxIdentifier)
     {
         return new Customer
         {
             Id = id,
             Name = name,
+            ContactPerson = contactPerson,
             ContactEmail = email,
             Phone = phone,
             BillingAddress = address,
+            TaxIdentifier = taxIdentifier,
+            Status = ClientStatus.Active,
+            UpdatedAtUtc = BaseDate,
             CreatedAtUtc = BaseDate
         };
     }
@@ -172,8 +205,19 @@ public static class FlowLedgerSeedData
         int? rejectedAfterDays,
         bool paid = false)
     {
-        var subtotal = Math.Round(totalAmount / 1.15m, 2);
         var createdAtUtc = BaseDate.AddDays(number);
+        DateTime? submittedAtUtc = submittedAfterDays is null ? null : createdAtUtc.AddDays(submittedAfterDays.Value);
+        DateTime? approvedAtUtc = status is BillingRequestStatus.InvoiceGenerated or BillingRequestStatus.Paid ? createdAtUtc.AddDays(2) : null;
+        DateTime? rejectedAtUtc = rejectedAfterDays is null ? null : createdAtUtc.AddDays(rejectedAfterDays.Value);
+        var updatedAtUtc = paid ? createdAtUtc.AddDays(4) : createdAtUtc.AddDays(1);
+        var subtotal = Math.Round(totalAmount / 1.15m, 2);
+        var assignedQueue = status switch
+        {
+            BillingRequestStatus.Draft or BillingRequestStatus.Rejected => WorkflowQueue.Sales,
+            BillingRequestStatus.AccountsReview => WorkflowQueue.Accounts,
+            BillingRequestStatus.ManagerApproval => WorkflowQueue.Manager,
+            _ => WorkflowQueue.None
+        };
 
         return new BillingRequest
         {
@@ -184,15 +228,25 @@ public static class FlowLedgerSeedData
             Description = $"{title} for seeded workflow testing.",
             Status = status,
             CreatedByUserId = SalesUserId,
-            AssignedToUserId = assignedToUserId,
+            AssignedToUserId = assignedQueue == WorkflowQueue.None ? null : assignedToUserId,
+            AssignedQueue = assignedQueue,
+            AssignedAtUtc = assignedQueue == WorkflowQueue.None ? null : rejectedAtUtc ?? submittedAtUtc ?? createdAtUtc,
+            SubmittedByUserId = submittedAtUtc is null ? null : SalesUserId,
+            AccountsReviewedByUserId = status is BillingRequestStatus.ManagerApproval or BillingRequestStatus.InvoiceGenerated or BillingRequestStatus.Paid
+                ? AccountsUserId
+                : null,
+            ManagerReviewedByUserId = status is BillingRequestStatus.InvoiceGenerated or BillingRequestStatus.Paid && totalAmount > 100000m
+                ? ManagerUserId
+                : null,
+            LastWorkflowActionAtUtc = rejectedAtUtc ?? approvedAtUtc ?? submittedAtUtc ?? updatedAtUtc,
             SubtotalAmount = subtotal,
             VatAmount = totalAmount - subtotal,
             TotalAmount = totalAmount,
-            SubmittedAtUtc = submittedAfterDays is null ? null : createdAtUtc.AddDays(submittedAfterDays.Value),
-            ApprovedAtUtc = status is BillingRequestStatus.InvoiceGenerated or BillingRequestStatus.Paid ? createdAtUtc.AddDays(2) : null,
-            RejectedAtUtc = rejectedAfterDays is null ? null : createdAtUtc.AddDays(rejectedAfterDays.Value),
+            SubmittedAtUtc = submittedAtUtc,
+            ApprovedAtUtc = approvedAtUtc,
+            RejectedAtUtc = rejectedAtUtc,
             CreatedAtUtc = createdAtUtc,
-            UpdatedAtUtc = paid ? createdAtUtc.AddDays(4) : createdAtUtc.AddDays(1)
+            UpdatedAtUtc = updatedAtUtc
         };
     }
 
@@ -208,10 +262,12 @@ public static class FlowLedgerSeedData
             BillingRequestId = request.Id,
             CustomerId = customerId,
             SubtotalAmount = request.SubtotalAmount,
+            VatPercentage = 15m,
             VatAmount = request.VatAmount,
             TotalAmount = request.TotalAmount,
             Status = status,
             IssuedAtUtc = issuedAtUtc,
+            DueDays = 30,
             DueAtUtc = issuedAtUtc.AddDays(30),
             PaidAtUtc = paidAfterDays is null ? null : issuedAtUtc.AddDays(paidAfterDays.Value)
         };
@@ -235,7 +291,11 @@ public static class FlowLedgerSeedData
         {
             Id = Guid.Parse($"eeeeeeee-eeee-eeee-eeee-{number:000000000000}"),
             BillingRequestId = BillingRequestId(billingRequestNumber),
+            EntityType = "BillingRequest",
+            EntityId = BillingRequestId(billingRequestNumber),
+            EntityNumber = $"BR-2026-{billingRequestNumber:0000}",
             ActorUserId = actorUserId,
+            ActorDisplayName = Users.Single(x => x.Id == actorUserId).FullName,
             ActionType = actionType,
             Message = message,
             CreatedAtUtc = BaseDate.AddDays(billingRequestNumber).AddHours(2)

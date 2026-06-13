@@ -123,12 +123,14 @@ export function RequestDetailPage() {
               <CardTitle>Request Details</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
-              <Info label="Customer" value={request.customer.name} />
-              <Info label="Customer Email" value={request.customer.contactEmail} />
+              <Info label="Client" value={request.customer.name} />
+              <Info label="Client Email" value={request.customer.contactEmail} />
               <Info label="Created By" value={`${request.createdBy.fullName} (${request.createdBy.role})`} />
               <Info label="Assigned To" value={request.assignedTo ? `${request.assignedTo.fullName} (${request.assignedTo.role})` : '-'} />
+              <Info label="Current Queue" value={request.assignedQueue === 'None' ? 'No active queue' : request.assignedQueue} />
+              <Info label="Assigned At" value={formatDateTime(request.assignedAtUtc)} />
               <Info label="Submitted" value={formatDateTime(request.submittedAtUtc)} />
-              <Info label="Updated" value={formatDateTime(request.updatedAtUtc)} />
+              <Info label="Last Workflow Action" value={formatDateTime(request.lastWorkflowActionAtUtc)} />
               <div className="md:col-span-2">
                 <p className="text-sm font-medium text-slate-600">Description</p>
                 <p className="mt-1 text-sm leading-6 text-slate-900">{request.description || '-'}</p>

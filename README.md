@@ -129,6 +129,11 @@ Current signed-off session:
 
 ![FlowLedger session 01 behaviour flow](docs/agent-build-sessions/01-initial-flowledger-build/session-flow.png)
 
+Planned enhancement session:
+
+- `docs/agent-build-sessions/02-workflow-administration-audit-enhancements/workflow_admin_audit_enhancements_plan.md`
+- `docs/agent-build-sessions/02-workflow-administration-audit-enhancements/implementation-log.md`
+
 ## API overview
 
 - `POST /api/auth/login`
@@ -177,6 +182,7 @@ docker run --rm -e TESTCONTAINERS_RYUK_DISABLED=true -e TESTCONTAINERS_HOST_OVER
 
 - Mock seeded-user login instead of a real identity provider.
 - JWT revocation is not implemented yet; see `docs/backlog.md`.
+- Rate limiting is not implemented yet; future hardening should cover login, registration, workflow mutations, CSV export, and PDF export endpoints.
 - No file attachments, email notifications, payment gateway, or PDF export.
 - No admin UI for changing approval thresholds or app settings.
 - Dashboard reporting is intentionally compact for the assignment scope.
@@ -184,6 +190,7 @@ docker run --rm -e TESTCONTAINERS_RYUK_DISABLED=true -e TESTCONTAINERS_HOST_OVER
 ## What I would improve with more time
 
 - Add real identity provider integration and active session revocation.
+- Add endpoint-specific rate limiting for auth, enrollment, workflow, and export actions.
 - Add notification delivery for assigned approvals and rejections.
 - Add attachments and generated invoice PDF export.
 - Add configurable approval rules UI.

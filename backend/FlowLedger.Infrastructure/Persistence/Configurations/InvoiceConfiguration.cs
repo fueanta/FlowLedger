@@ -18,6 +18,7 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
             .IsRequired();
 
         builder.Property(x => x.SubtotalAmount).HasPrecision(18, 2);
+        builder.Property(x => x.VatPercentage).HasPrecision(5, 2);
         builder.Property(x => x.VatAmount).HasPrecision(18, 2);
         builder.Property(x => x.TotalAmount).HasPrecision(18, 2);
 

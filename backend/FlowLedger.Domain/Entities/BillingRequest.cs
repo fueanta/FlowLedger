@@ -18,6 +18,12 @@ public class BillingRequest
 
     public Guid? AssignedToUserId { get; set; }
     public User? AssignedToUser { get; set; }
+    public WorkflowQueue AssignedQueue { get; set; }
+    public DateTime? AssignedAtUtc { get; set; }
+    public Guid? SubmittedByUserId { get; set; }
+    public Guid? AccountsReviewedByUserId { get; set; }
+    public Guid? ManagerReviewedByUserId { get; set; }
+    public DateTime? LastWorkflowActionAtUtc { get; set; }
 
     public decimal SubtotalAmount { get; set; }
     public decimal VatAmount { get; set; }

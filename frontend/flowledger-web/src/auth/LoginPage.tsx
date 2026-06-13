@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { LogIn } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Alert } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
@@ -88,6 +88,9 @@ export function LoginPage() {
               <Button className="w-full" type="submit" disabled={isSubmitting}>
                 <LogIn className="h-4 w-4" aria-hidden="true" />
                 {isSubmitting ? 'Signing in...' : 'Sign in'}
+              </Button>
+              <Button asChild className="w-full" variant="outline">
+                <Link to="/register">Request access</Link>
               </Button>
             </form>
           </CardContent>

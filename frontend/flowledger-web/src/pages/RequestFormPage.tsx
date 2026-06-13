@@ -125,7 +125,7 @@ export function RequestFormPage() {
     <>
       <PageHeader
         title={isEdit ? 'Edit Billing Request' : 'New Billing Request'}
-        description="Add customer, description, and billable line items. Totals include 15% VAT."
+        description="Add client, description, and billable line items. Totals include 15% VAT."
       />
 
       <form className="grid gap-6 xl:grid-cols-[1fr_320px]" noValidate>
@@ -136,9 +136,9 @@ export function RequestFormPage() {
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="customerId">Customer</Label>
+                <Label htmlFor="customerId">Client</Label>
                 <Select id="customerId" {...register('customerId')} aria-invalid={Boolean(errors.customerId)}>
-                  <option value="">Select customer</option>
+                  <option value="">Select active client</option>
                   {customersQuery.data?.map((customer) => (
                     <option key={customer.id} value={customer.id}>
                       {customer.name}

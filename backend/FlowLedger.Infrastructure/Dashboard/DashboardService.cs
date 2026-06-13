@@ -10,10 +10,12 @@ namespace FlowLedger.Infrastructure.Dashboard;
 public sealed class DashboardService : IDashboardService
 {
     private readonly FlowLedgerDbContext _dbContext;
+    private readonly IDateTimeProvider _dateTimeProvider;
 
-    public DashboardService(FlowLedgerDbContext dbContext)
+    public DashboardService(FlowLedgerDbContext dbContext, IDateTimeProvider dateTimeProvider)
     {
         _dbContext = dbContext;
+        _dateTimeProvider = dateTimeProvider;
     }
 
     public async Task<DashboardSummaryDto> GetSummaryAsync(
@@ -21,7 +23,7 @@ public sealed class DashboardService : IDashboardService
         CurrentUser currentUser,
         CancellationToken cancellationToken)
     {
-        var now = DateTime.UtcNow;
+        var now = _dateTimeProvider.UtcNow;
         var periodStart = now.AddMonths(-query.PeriodMonths);
         var requests = ApplyRequestVisibility(_dbContext.BillingRequests.AsNoTracking(), currentUser);
         var invoices = ApplyInvoiceVisibility(_dbContext.Invoices.AsNoTracking(), currentUser);
@@ -103,13 +105,13 @@ public sealed class DashboardService : IDashboardService
         var recentActivity = await ApplyAuditVisibility(_dbContext.AuditLogs.AsNoTracking(), currentUser)
             .Include(x => x.BillingRequest)
             .Include(x => x.ActorUser)
-            .Where(x => x.CreatedAtUtc >= periodStart)
+            .Where(x => x.BillingRequestId != null && x.BillingRequest != null && x.CreatedAtUtc >= periodStart)
             .OrderByDescending(x => x.CreatedAtUtc)
             .Take(10)
             .Select(x => new RecentActivityDto(
                 x.Id,
-                x.BillingRequestId,
-                x.BillingRequest.RequestNumber,
+                x.BillingRequestId!.Value,
+                x.BillingRequest!.RequestNumber,
                 x.ActorUser.FullName,
                 x.ActionType.ToString(),
                 x.Message,
@@ -117,6 +119,22 @@ public sealed class DashboardService : IDashboardService
             .ToListAsync(cancellationToken);
 
         return new DashboardSummaryDto(
+            new DashboardPeriodDto(query.PeriodMonths, periodStart, now),
+            new Dictionary<string, string>
+            {
+                [nameof(DashboardSummaryDto.TotalRequests)] = "Period",
+                [nameof(DashboardSummaryDto.ApprovedThisMonth)] = "Period",
+                [nameof(DashboardSummaryDto.TotalInvoiceAmount)] = "Period",
+                [nameof(DashboardSummaryDto.PaidInvoiceAmount)] = "Period",
+                [nameof(DashboardSummaryDto.RejectedCount)] = "Period",
+                [nameof(DashboardSummaryDto.AverageApprovalHours)] = "Period",
+                [nameof(DashboardSummaryDto.StatusBreakdown)] = "Period",
+                [nameof(DashboardSummaryDto.MonthlyInvoiceTrend)] = "Period",
+                [nameof(DashboardSummaryDto.RecentActivity)] = "Period",
+                [nameof(DashboardSummaryDto.PendingAccountsReview)] = "Current",
+                [nameof(DashboardSummaryDto.PendingManagerApproval)] = "Current",
+                [nameof(DashboardSummaryDto.AgingBuckets)] = "Current"
+            },
             totalRequests,
             pendingAccountsReview,
             pendingManagerApproval,
@@ -148,7 +166,7 @@ public sealed class DashboardService : IDashboardService
         return currentUser.Role switch
         {
             RoleName.Admin => query,
-            RoleName.Sales => query.Where(x => x.BillingRequest.CreatedByUserId == currentUser.Id),
+            RoleName.Sales => query.Where(x => x.BillingRequest != null && x.BillingRequest.CreatedByUserId == currentUser.Id),
             RoleName.Accounts => query,
             RoleName.Manager => query,
             _ => query.Where(x => x.Id == Guid.Empty)
@@ -160,7 +178,7 @@ public sealed class DashboardService : IDashboardService
         return currentUser.Role switch
         {
             RoleName.Admin => query,
-            RoleName.Sales => query.Where(x => x.BillingRequest.CreatedByUserId == currentUser.Id),
+            RoleName.Sales => query.Where(x => x.BillingRequest != null && x.BillingRequest.CreatedByUserId == currentUser.Id),
             RoleName.Accounts => query,
             RoleName.Manager => query,
             _ => query.Where(x => x.Id == Guid.Empty)

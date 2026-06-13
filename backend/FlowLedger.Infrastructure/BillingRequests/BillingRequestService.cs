@@ -1,8 +1,9 @@
 using FlowLedger.Application.BillingRequests;
+using FlowLedger.Application.Audit;
 using FlowLedger.Application.Common;
+using FlowLedger.Application.Configuration;
 using FlowLedger.Domain.Entities;
 using FlowLedger.Domain.Enums;
-using FlowLedger.Domain.Rules;
 using FlowLedger.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,10 +14,17 @@ public sealed class BillingRequestService : IBillingRequestService
     private const int MaxPageSize = 100;
 
     private readonly FlowLedgerDbContext _dbContext;
+    private readonly ISystemSettingsService _settingsService;
+    private readonly IWorkflowAuditWriter _auditWriter;
 
-    public BillingRequestService(FlowLedgerDbContext dbContext)
+    public BillingRequestService(
+        FlowLedgerDbContext dbContext,
+        ISystemSettingsService settingsService,
+        IWorkflowAuditWriter auditWriter)
     {
         _dbContext = dbContext;
+        _settingsService = settingsService;
+        _auditWriter = auditWriter;
     }
 
     public async Task<PagedResult<BillingRequestListItemDto>> GetAsync(
@@ -38,6 +46,11 @@ public sealed class BillingRequestService : IBillingRequestService
         if (query.CustomerId is not null)
         {
             requests = requests.Where(x => x.CustomerId == query.CustomerId);
+        }
+
+        if (query.Queue is not null)
+        {
+            requests = requests.Where(x => x.AssignedQueue == query.Queue);
         }
 
         if (query.AssignedToMe)
@@ -70,8 +83,7 @@ public sealed class BillingRequestService : IBillingRequestService
         }
 
         var totalCount = await requests.CountAsync(cancellationToken);
-        var items = await requests
-            .OrderByDescending(x => x.CreatedAtUtc)
+        var items = await ApplySort(requests, query.SortBy, query.SortDirection)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(x => new BillingRequestListItemDto(
@@ -80,6 +92,9 @@ public sealed class BillingRequestService : IBillingRequestService
                 x.Title,
                 x.Customer.Name,
                 x.Status,
+                x.AssignedQueue,
+                x.AssignedAtUtc,
+                x.LastWorkflowActionAtUtc,
                 x.TotalAmount,
                 x.CreatedAtUtc,
                 x.UpdatedAtUtc))
@@ -105,11 +120,7 @@ public sealed class BillingRequestService : IBillingRequestService
     {
         EnsureSalesOrAdmin(currentUser);
 
-        var customerExists = await _dbContext.Customers.AnyAsync(x => x.Id == request.CustomerId, cancellationToken);
-        if (!customerExists)
-        {
-            throw new InvalidOperationException("Customer was not found.");
-        }
+        await EnsureActiveCustomerAsync(request.CustomerId, cancellationToken);
 
         var now = DateTime.UtcNow;
         var billingRequest = new BillingRequest
@@ -121,15 +132,20 @@ public sealed class BillingRequestService : IBillingRequestService
             Description = request.Description.Trim(),
             Status = BillingRequestStatus.Draft,
             CreatedByUserId = currentUser.Id,
+            AssignedToUserId = currentUser.Id,
+            AssignedQueue = WorkflowQueue.Sales,
+            AssignedAtUtc = now,
+            LastWorkflowActionAtUtc = now,
             CreatedAtUtc = now,
             UpdatedAtUtc = now
         };
 
-        SetLineItemsAndAmounts(billingRequest, request.LineItems);
-        AddAuditLog(billingRequest, currentUser.Id, AuditActionType.Created, "Billing request created.", now);
+        var settings = await _settingsService.GetAsync(cancellationToken);
+        SetLineItemsAndAmounts(billingRequest, request.LineItems, settings.VatPercentage);
+        AddAuditLog(billingRequest, currentUser, AuditActionType.Created, "Billing request created.", now);
 
         _dbContext.BillingRequests.Add(billingRequest);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await SaveWorkflowAsync(cancellationToken);
 
         return billingRequest.Id;
     }
@@ -147,25 +163,23 @@ public sealed class BillingRequestService : IBillingRequestService
             throw new KeyNotFoundException("Billing request was not found.");
         }
 
-        var customerExists = await _dbContext.Customers.AnyAsync(x => x.Id == request.CustomerId, cancellationToken);
-        if (!customerExists)
-        {
-            throw new InvalidOperationException("Customer was not found.");
-        }
+        await EnsureActiveCustomerAsync(request.CustomerId, cancellationToken);
 
         var now = DateTime.UtcNow;
         billingRequest.CustomerId = request.CustomerId;
         billingRequest.Title = request.Title.Trim();
         billingRequest.Description = request.Description.Trim();
         billingRequest.UpdatedAtUtc = now;
-        billingRequest.AssignedToUserId = null;
+        billingRequest.LastWorkflowActionAtUtc = now;
+        AssignToSales(billingRequest, now);
 
         _dbContext.BillingRequestLineItems.RemoveRange(billingRequest.LineItems);
         billingRequest.LineItems.Clear();
-        SetLineItemsAndAmounts(billingRequest, request.LineItems);
-        AddAuditLog(billingRequest, currentUser.Id, AuditActionType.Updated, "Billing request updated.", now);
+        var settings = await _settingsService.GetAsync(cancellationToken);
+        SetLineItemsAndAmounts(billingRequest, request.LineItems, settings.VatPercentage);
+        AddAuditLog(billingRequest, currentUser, AuditActionType.Updated, "Billing request updated.", now);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await SaveWorkflowAsync(cancellationToken);
     }
 
     public async Task SubmitAsync(Guid id, CurrentUser currentUser, CancellationToken cancellationToken)
@@ -185,17 +199,22 @@ public sealed class BillingRequestService : IBillingRequestService
             throw new InvalidOperationException("Only draft or rejected requests can be submitted.");
         }
 
-        var accountsUserId = await GetFirstActiveUserIdAsync(RoleName.Accounts, cancellationToken);
+        var beforeStatus = billingRequest.Status.ToString();
+        var accountsUser = await GetFirstActiveUserAsync(RoleName.Accounts, cancellationToken);
         var now = DateTime.UtcNow;
         billingRequest.Status = BillingRequestStatus.AccountsReview;
-        billingRequest.AssignedToUserId = accountsUserId;
+        billingRequest.AssignedToUserId = accountsUser.Id;
+        billingRequest.AssignedQueue = WorkflowQueue.Accounts;
+        billingRequest.AssignedAtUtc = now;
+        billingRequest.SubmittedByUserId = currentUser.Id;
         billingRequest.SubmittedAtUtc = now;
         billingRequest.RejectedAtUtc = null;
         billingRequest.UpdatedAtUtc = now;
-        AddAuditLog(billingRequest, currentUser.Id, AuditActionType.Submitted, "Billing request submitted to Accounts.", now);
-        AddAuditLog(billingRequest, accountsUserId, AuditActionType.Assigned, "Billing request assigned to Accounts.", now);
+        billingRequest.LastWorkflowActionAtUtc = now;
+        AddAuditLog(billingRequest, currentUser, AuditActionType.Submitted, "Billing request submitted to Accounts.", now, beforeStatus, BillingRequestStatus.AccountsReview.ToString());
+        AddAuditLog(billingRequest, accountsUser, AuditActionType.Assigned, "Billing request assigned to Accounts.", now);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await SaveWorkflowAsync(cancellationToken);
     }
 
     public async Task ApproveAsync(Guid id, ApproveBillingRequestDto request, CurrentUser currentUser, CancellationToken cancellationToken)
@@ -210,26 +229,34 @@ public sealed class BillingRequestService : IBillingRequestService
         }
 
         var now = DateTime.UtcNow;
+        var settings = await _settingsService.GetAsync(cancellationToken);
         if (billingRequest.Status == BillingRequestStatus.AccountsReview)
         {
             EnsureAccountsOrAdmin(currentUser);
-            if (billingRequest.TotalAmount <= ApprovalRules.ManagerApprovalThreshold)
+            if (billingRequest.TotalAmount <= settings.ManagerApprovalThreshold)
             {
                 billingRequest.Status = BillingRequestStatus.InvoiceGenerated;
                 billingRequest.ApprovedAtUtc = now;
                 billingRequest.UpdatedAtUtc = now;
-                AddAuditLog(billingRequest, currentUser.Id, AuditActionType.Approved, "Accounts approved billing request.", now);
+                billingRequest.AccountsReviewedByUserId = currentUser.Id;
+                billingRequest.LastWorkflowActionAtUtc = now;
+                ClearAssignment(billingRequest);
+                AddAuditLog(billingRequest, currentUser, AuditActionType.Approved, "Accounts approved billing request.", now, BillingRequestStatus.AccountsReview.ToString(), BillingRequestStatus.InvoiceGenerated.ToString());
                 AddOptionalComment(billingRequest.Id, currentUser.Id, request.Comment, now);
-                await CreateInvoiceAsync(billingRequest, currentUser.Id, now, cancellationToken);
+                await CreateInvoiceAsync(billingRequest, currentUser, now, settings, cancellationToken);
             }
             else
             {
-                var managerUserId = await GetFirstActiveUserIdAsync(RoleName.Manager, cancellationToken);
+                var managerUser = await GetFirstActiveUserAsync(RoleName.Manager, cancellationToken);
                 billingRequest.Status = BillingRequestStatus.ManagerApproval;
-                billingRequest.AssignedToUserId = managerUserId;
+                billingRequest.AssignedToUserId = managerUser.Id;
+                billingRequest.AssignedQueue = WorkflowQueue.Manager;
+                billingRequest.AssignedAtUtc = now;
+                billingRequest.AccountsReviewedByUserId = currentUser.Id;
                 billingRequest.UpdatedAtUtc = now;
-                AddAuditLog(billingRequest, currentUser.Id, AuditActionType.Approved, "Accounts approved billing request for manager review.", now);
-                AddAuditLog(billingRequest, managerUserId, AuditActionType.Assigned, "Billing request assigned to Management.", now);
+                billingRequest.LastWorkflowActionAtUtc = now;
+                AddAuditLog(billingRequest, currentUser, AuditActionType.Approved, "Accounts approved billing request for manager review.", now, BillingRequestStatus.AccountsReview.ToString(), BillingRequestStatus.ManagerApproval.ToString());
+                AddAuditLog(billingRequest, managerUser, AuditActionType.Assigned, "Billing request assigned to Management.", now);
                 AddOptionalComment(billingRequest.Id, currentUser.Id, request.Comment, now);
             }
         }
@@ -239,16 +266,19 @@ public sealed class BillingRequestService : IBillingRequestService
             billingRequest.Status = BillingRequestStatus.InvoiceGenerated;
             billingRequest.ApprovedAtUtc = now;
             billingRequest.UpdatedAtUtc = now;
-            AddAuditLog(billingRequest, currentUser.Id, AuditActionType.Approved, "Management approved billing request.", now);
+            billingRequest.ManagerReviewedByUserId = currentUser.Id;
+            billingRequest.LastWorkflowActionAtUtc = now;
+            ClearAssignment(billingRequest);
+            AddAuditLog(billingRequest, currentUser, AuditActionType.Approved, "Management approved billing request.", now, BillingRequestStatus.ManagerApproval.ToString(), BillingRequestStatus.InvoiceGenerated.ToString());
             AddOptionalComment(billingRequest.Id, currentUser.Id, request.Comment, now);
-            await CreateInvoiceAsync(billingRequest, currentUser.Id, now, cancellationToken);
+            await CreateInvoiceAsync(billingRequest, currentUser, now, settings, cancellationToken);
         }
         else
         {
             throw new InvalidOperationException("Billing request is not waiting for approval.");
         }
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await SaveWorkflowAsync(cancellationToken);
     }
 
     public async Task RejectAsync(Guid id, RejectBillingRequestDto request, CurrentUser currentUser, CancellationToken cancellationToken)
@@ -274,15 +304,17 @@ public sealed class BillingRequestService : IBillingRequestService
             throw new InvalidOperationException("Billing request is not waiting for rejection.");
         }
 
+        var beforeStatus = billingRequest.Status.ToString();
         var now = DateTime.UtcNow;
         billingRequest.Status = BillingRequestStatus.Rejected;
-        billingRequest.AssignedToUserId = billingRequest.CreatedByUserId;
+        AssignToSales(billingRequest, now);
         billingRequest.RejectedAtUtc = now;
         billingRequest.UpdatedAtUtc = now;
-        AddAuditLog(billingRequest, currentUser.Id, AuditActionType.Rejected, request.Reason.Trim(), now);
+        billingRequest.LastWorkflowActionAtUtc = now;
+        AddAuditLog(billingRequest, currentUser, AuditActionType.Rejected, request.Reason.Trim(), now, beforeStatus, BillingRequestStatus.Rejected.ToString());
         AddOptionalComment(billingRequest.Id, currentUser.Id, request.Reason, now);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await SaveWorkflowAsync(cancellationToken);
     }
 
     public async Task AddCommentAsync(Guid id, AddCommentDto request, CurrentUser currentUser, CancellationToken cancellationToken)
@@ -297,9 +329,9 @@ public sealed class BillingRequestService : IBillingRequestService
 
         var now = DateTime.UtcNow;
         AddOptionalComment(id, currentUser.Id, request.Body, now);
-        AddAuditLog(billingRequest, currentUser.Id, AuditActionType.Commented, "Comment added.", now);
+        AddAuditLog(billingRequest, currentUser, AuditActionType.Commented, "Comment added.", now);
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await SaveWorkflowAsync(cancellationToken);
     }
 
     private IQueryable<BillingRequest> LoadDetailQuery()
@@ -323,6 +355,19 @@ public sealed class BillingRequestService : IBillingRequestService
             RoleName.Accounts => query,
             RoleName.Manager => query,
             _ => query.Where(x => x.Id == Guid.Empty)
+        };
+    }
+
+    private static IQueryable<BillingRequest> ApplySort(IQueryable<BillingRequest> query, string? sortBy, string? sortDirection)
+    {
+        var descending = string.Equals(sortDirection, "desc", StringComparison.OrdinalIgnoreCase);
+        return sortBy?.Trim().ToLowerInvariant() switch
+        {
+            "updatedatutc" => descending ? query.OrderByDescending(x => x.UpdatedAtUtc) : query.OrderBy(x => x.UpdatedAtUtc),
+            "amount" => descending ? query.OrderByDescending(x => x.TotalAmount) : query.OrderBy(x => x.TotalAmount),
+            "status" => descending ? query.OrderByDescending(x => x.Status) : query.OrderBy(x => x.Status),
+            "clientname" => descending ? query.OrderByDescending(x => x.Customer.Name) : query.OrderBy(x => x.Customer.Name),
+            _ => descending ? query.OrderByDescending(x => x.CreatedAtUtc) : query.OrderBy(x => x.CreatedAtUtc)
         };
     }
 
@@ -379,7 +424,7 @@ public sealed class BillingRequestService : IBillingRequestService
         return actions;
     }
 
-    private void SetLineItemsAndAmounts(BillingRequest billingRequest, IReadOnlyList<CreateBillingRequestLineItemDto> lineItems)
+    private void SetLineItemsAndAmounts(BillingRequest billingRequest, IReadOnlyList<CreateBillingRequestLineItemDto> lineItems, decimal vatPercentage)
     {
         var subtotal = 0m;
         foreach (var item in lineItems)
@@ -401,14 +446,15 @@ public sealed class BillingRequestService : IBillingRequestService
         }
 
         billingRequest.SubtotalAmount = subtotal;
-        billingRequest.VatAmount = Math.Round(billingRequest.SubtotalAmount * ApprovalRules.VatRate, 2);
+        billingRequest.VatAmount = Math.Round(billingRequest.SubtotalAmount * (vatPercentage / 100m), 2);
         billingRequest.TotalAmount = billingRequest.SubtotalAmount + billingRequest.VatAmount;
     }
 
     private async Task CreateInvoiceAsync(
         BillingRequest billingRequest,
-        Guid actorUserId,
+        CurrentUser currentUser,
         DateTime now,
+        SystemSettingsDto settings,
         CancellationToken cancellationToken)
     {
         if (billingRequest.Invoice is not null)
@@ -423,15 +469,17 @@ public sealed class BillingRequestService : IBillingRequestService
             BillingRequestId = billingRequest.Id,
             CustomerId = billingRequest.CustomerId,
             SubtotalAmount = billingRequest.SubtotalAmount,
+            VatPercentage = settings.VatPercentage,
             VatAmount = billingRequest.VatAmount,
             TotalAmount = billingRequest.TotalAmount,
             Status = InvoiceStatus.Issued,
             IssuedAtUtc = now,
-            DueAtUtc = now.AddDays(30)
+            DueDays = settings.InvoiceDueDays,
+            DueAtUtc = now.AddDays(settings.InvoiceDueDays)
         };
 
         _dbContext.Invoices.Add(invoice);
-        AddAuditLog(billingRequest, actorUserId, AuditActionType.InvoiceGenerated, "Invoice generated.", now);
+        AddAuditLog(billingRequest, currentUser, AuditActionType.InvoiceGenerated, "Invoice generated.", now);
     }
 
     private async Task<string> NextRequestNumberAsync(CancellationToken cancellationToken)
@@ -465,13 +513,32 @@ public sealed class BillingRequestService : IBillingRequestService
             : 1;
     }
 
-    private async Task<Guid> GetFirstActiveUserIdAsync(RoleName role, CancellationToken cancellationToken)
+    private async Task<WorkflowActor> GetFirstActiveUserAsync(RoleName role, CancellationToken cancellationToken)
     {
         return await _dbContext.Users
             .Where(x => x.Role == role && x.IsActive)
             .OrderBy(x => x.CreatedAtUtc)
-            .Select(x => x.Id)
+            .Select(x => new WorkflowActor(x.Id, x.FullName))
             .FirstAsync(cancellationToken);
+    }
+
+    private async Task EnsureActiveCustomerAsync(Guid customerId, CancellationToken cancellationToken)
+    {
+        var customer = await _dbContext.Customers
+            .AsNoTracking()
+            .Where(x => x.Id == customerId)
+            .Select(x => new { x.Status })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (customer is null)
+        {
+            throw new InvalidOperationException("Client was not found.");
+        }
+
+        if (customer.Status != ClientStatus.Active)
+        {
+            throw new InvalidOperationException("Billing requests can only use active clients.");
+        }
     }
 
     private void AddOptionalComment(Guid billingRequestId, Guid authorUserId, string? body, DateTime now)
@@ -491,17 +558,73 @@ public sealed class BillingRequestService : IBillingRequestService
         });
     }
 
-    private void AddAuditLog(BillingRequest billingRequest, Guid actorUserId, AuditActionType actionType, string message, DateTime now)
+    private void AssignToSales(BillingRequest billingRequest, DateTime now)
     {
-        _dbContext.AuditLogs.Add(new AuditLog
+        billingRequest.AssignedToUserId = billingRequest.CreatedByUserId;
+        billingRequest.AssignedQueue = WorkflowQueue.Sales;
+        billingRequest.AssignedAtUtc = now;
+    }
+
+    private static void ClearAssignment(BillingRequest billingRequest)
+    {
+        billingRequest.AssignedToUserId = null;
+        billingRequest.AssignedQueue = WorkflowQueue.None;
+        billingRequest.AssignedAtUtc = null;
+    }
+
+    private void AddAuditLog(
+        BillingRequest billingRequest,
+        CurrentUser currentUser,
+        AuditActionType actionType,
+        string message,
+        DateTime now,
+        string? beforeStatus = null,
+        string? afterStatus = null)
+    {
+        AddAuditLog(
+            billingRequest,
+            new WorkflowActor(currentUser.Id, currentUser.FullName),
+            actionType,
+            message,
+            now,
+            beforeStatus,
+            afterStatus);
+    }
+
+    private void AddAuditLog(
+        BillingRequest billingRequest,
+        WorkflowActor actor,
+        AuditActionType actionType,
+        string message,
+        DateTime now,
+        string? beforeStatus = null,
+        string? afterStatus = null)
+    {
+        _auditWriter.Add(new WorkflowAuditEntry(
+            billingRequest.Id,
+            "BillingRequest",
+            billingRequest.Id,
+            billingRequest.RequestNumber,
+            actor.Id,
+            actor.FullName,
+            actionType,
+            message,
+            now,
+            beforeStatus,
+            afterStatus));
+    }
+
+    private async Task SaveWorkflowAsync(CancellationToken cancellationToken)
+    {
+        if (_dbContext.Database.ProviderName == "Microsoft.EntityFrameworkCore.InMemory")
         {
-            Id = Guid.NewGuid(),
-            BillingRequestId = billingRequest.Id,
-            ActorUserId = actorUserId,
-            ActionType = actionType,
-            Message = message,
-            CreatedAtUtc = now
-        });
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
     }
 
     private static void EnsureSalesOrAdmin(CurrentUser currentUser)
@@ -527,4 +650,6 @@ public sealed class BillingRequestService : IBillingRequestService
             throw new UnauthorizedAccessException("Only Manager or Admin users can perform this action.");
         }
     }
+
+    private sealed record WorkflowActor(Guid Id, string FullName);
 }

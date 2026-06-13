@@ -70,9 +70,9 @@ export function InvoiceListPage() {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="invoice-customer">Customer</Label>
+            <Label htmlFor="invoice-customer">Client</Label>
             <Select id="invoice-customer" value={customerId} onChange={(event) => setCustomerId(event.target.value)}>
-              <option value="">All customers</option>
+              <option value="">All active clients</option>
               {customersQuery.data?.map((customer) => (
                 <option key={customer.id} value={customer.id}>
                   {customer.name}
@@ -96,7 +96,7 @@ export function InvoiceListPage() {
                 <TableRow>
                   <TableHead>Invoice No</TableHead>
                   <TableHead>Request No</TableHead>
-                  <TableHead>Customer</TableHead>
+                  <TableHead>Client</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Issued</TableHead>

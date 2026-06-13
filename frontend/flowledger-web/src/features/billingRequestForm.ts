@@ -7,7 +7,7 @@ export const billingRequestLineItemSchema = z.object({
 })
 
 export const billingRequestFormSchema = z.object({
-  customerId: z.string().min(1, 'Customer is required.'),
+  customerId: z.string().min(1, 'Client is required.'),
   title: z.string().trim().min(3, 'Title must be at least 3 characters.').max(200, 'Title is too long.'),
   description: z.string().max(2000, 'Description is too long.'),
   lineItems: z.array(billingRequestLineItemSchema).min(1, 'Add at least one line item.'),

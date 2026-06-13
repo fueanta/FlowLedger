@@ -20,6 +20,11 @@ describe('api client auth handling', () => {
         fullName: 'Sarah Sales',
         email: 'sales@flowledger.local',
         role: 'Sales',
+        status: 'Active',
+        isActive: true,
+        createdAtUtc: '2026-01-05T09:00:00Z',
+        updatedAtUtc: '2026-01-05T09:00:00Z',
+        lastLoginAtUtc: null,
       },
     })
     mock.onGet('/dashboard/summary').reply(401)

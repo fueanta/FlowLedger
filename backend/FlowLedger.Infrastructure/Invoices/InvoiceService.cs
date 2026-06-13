@@ -1,3 +1,4 @@
+using FlowLedger.Application.Audit;
 using FlowLedger.Application.Common;
 using FlowLedger.Application.Invoices;
 using FlowLedger.Domain.Entities;
@@ -12,10 +13,12 @@ public sealed class InvoiceService : IInvoiceService
     private const int MaxPageSize = 100;
 
     private readonly FlowLedgerDbContext _dbContext;
+    private readonly IWorkflowAuditWriter _auditWriter;
 
-    public InvoiceService(FlowLedgerDbContext dbContext)
+    public InvoiceService(FlowLedgerDbContext dbContext, IWorkflowAuditWriter auditWriter)
     {
         _dbContext = dbContext;
+        _auditWriter = auditWriter;
     }
 
     public async Task<PagedResult<InvoiceListItemDto>> GetAsync(InvoiceQuery query, CurrentUser currentUser, CancellationToken cancellationToken)
@@ -83,9 +86,11 @@ public sealed class InvoiceService : IInvoiceService
             invoice.InvoiceNumber,
             invoice.Status,
             invoice.SubtotalAmount,
+            invoice.VatPercentage,
             invoice.VatAmount,
             invoice.TotalAmount,
             invoice.IssuedAtUtc,
+            invoice.DueDays,
             invoice.DueAtUtc,
             invoice.PaidAtUtc,
             new InvoiceCustomerDto(invoice.Customer.Id, invoice.Customer.Name, invoice.Customer.ContactEmail, invoice.Customer.BillingAddress),
@@ -117,18 +122,33 @@ public sealed class InvoiceService : IInvoiceService
         invoice.Status = InvoiceStatus.Paid;
         invoice.PaidAtUtc = now;
         invoice.BillingRequest.Status = BillingRequestStatus.Paid;
+        invoice.BillingRequest.AssignedQueue = WorkflowQueue.None;
+        invoice.BillingRequest.AssignedToUserId = null;
+        invoice.BillingRequest.AssignedAtUtc = null;
+        invoice.BillingRequest.LastWorkflowActionAtUtc = now;
         invoice.BillingRequest.UpdatedAtUtc = now;
-        _dbContext.AuditLogs.Add(new AuditLog
-        {
-            Id = Guid.NewGuid(),
-            BillingRequestId = invoice.BillingRequestId,
-            ActorUserId = currentUser.Id,
-            ActionType = AuditActionType.PaymentMarked,
-            Message = "Invoice marked as paid.",
-            CreatedAtUtc = now
-        });
+        _auditWriter.Add(new WorkflowAuditEntry(
+            invoice.BillingRequestId,
+            "Invoice",
+            invoice.Id,
+            invoice.InvoiceNumber,
+            currentUser.Id,
+            currentUser.FullName,
+            AuditActionType.PaymentMarked,
+            "Invoice marked as paid.",
+            now,
+            InvoiceStatus.Issued.ToString(),
+            InvoiceStatus.Paid.ToString()));
 
+        if (_dbContext.Database.ProviderName == "Microsoft.EntityFrameworkCore.InMemory")
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
     }
 
     private static IQueryable<Invoice> ApplyVisibility(IQueryable<Invoice> query, CurrentUser currentUser)

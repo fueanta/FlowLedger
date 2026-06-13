@@ -17,10 +17,28 @@ public class AuditLogConfiguration : IEntityTypeConfiguration<AuditLog>
             .HasMaxLength(2000)
             .IsRequired();
 
+        builder.Property(x => x.EntityType)
+            .HasMaxLength(100)
+            .IsRequired();
+
+        builder.Property(x => x.EntityNumber)
+            .HasMaxLength(200);
+
+        builder.Property(x => x.ActorDisplayName)
+            .HasMaxLength(160)
+            .IsRequired();
+
+        builder.Property(x => x.BeforeStatus)
+            .HasMaxLength(80);
+
+        builder.Property(x => x.AfterStatus)
+            .HasMaxLength(80);
+
         builder.Property(x => x.MetadataJson)
             .HasMaxLength(4000);
 
         builder.HasIndex(x => new { x.BillingRequestId, x.CreatedAtUtc });
+        builder.HasIndex(x => new { x.EntityType, x.EntityId, x.CreatedAtUtc });
 
         builder.HasOne(x => x.BillingRequest)
             .WithMany(x => x.AuditLogs)
